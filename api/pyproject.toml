@@ -1,0 +1,13 @@
+[project]
+name = "chart-pattern-alert-api"
+version = "0.1.0"
+description = "OHLCV wrapper API for chart-pattern-alert (FastAPI + yfinance)"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning:yfinance",
+    "ignore::FutureWarning",
+]
