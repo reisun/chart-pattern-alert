@@ -82,11 +82,12 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **状態**: データ構造は複数銘柄対応済。UI は最小限
 - **内容**: 通知履歴画面、銘柄別ステータス一覧、タブドラッグ並べ替え、未読バッジ等
 
-### B5. データソース切替（yfinance ↔ Finnhub / Alpha Vantage）
+### B5. データソース切替（TwelveData / yfinance / Finnhub / Alpha Vantage）
 
-- **状態**: 完了。`DATA_SOURCE` 環境変数で yfinance / finnhub / alphavantage を切替可能。デフォルトは yfinance（Finnhub・Alpha Vantage は無料枠で OHLCV 分足が制限されるため）。キャッシュ TTL を 300秒に延長しレートリミット耐性を向上
-- **内容**: 環境変数 `DATA_SOURCE` で切替、Finnhub / Alpha Vantage 実装を追加
-- **動機**: yfinance のレート制限耐性向上、将来の有料プラン契約時に即切替可能
+- **状態**: 完了。`DATA_SOURCE` 環境変数で twelvedata / yfinance / finnhub / alphavantage を切替可能。デフォルトは TwelveData（無料枠 800req/日、米国株の日足・分足対応）。キャッシュ TTL を 300秒に延長
+- **内容**: TwelveData（デフォルト）、Finnhub、Alpha Vantage の 3 データソースを追加実装。環境変数で切替可能
+- **動機**: yfinance のレートリミット問題を TwelveData で根本解決
+- **備考**: 日本株は TwelveData Pro プラン（有料）または J-Quants API が必要。将来課題として保留
 
 ---
 
