@@ -3,7 +3,7 @@ import { detectAll, defaultPatternConfig } from "./patterns";
 import type { Candle, DetectedPattern, PatternKind } from "./patterns/types";
 import { notifyPattern, requestPermission, getPermission } from "./services/notifier";
 import { startPolling, type PollingHandle } from "./services/polling";
-import { DEFAULT_STATE, addSeen, loadState, saveState, type AppState, type Interval, type Scale } from "./state/appState";
+import { DEFAULT_STATE, addSeen, loadState, saveState, availableIntervals, type AppState, type Interval, type Scale } from "./state/appState";
 import { createChartView, type ChartHandle } from "./ui/chart";
 import { renderControls } from "./ui/controls";
 import { renderTabs } from "./ui/tabs";
@@ -75,6 +75,7 @@ export class App {
         scale: this.state.scale,
         pollingMs: this.state.pollingMs,
         notificationEnabled: this.state.notificationEnabled,
+        activeSymbol: this.state.activeSymbol,
       },
       {
         onIntervalChange: (v: Interval) => {
@@ -99,7 +100,9 @@ export class App {
   }
 
   private setActive(symbol: string): void {
-    this.state = { ...this.state, activeSymbol: symbol };
+    const allowed = availableIntervals(symbol);
+    const interval = allowed.includes(this.state.interval) ? this.state.interval : allowed[0];
+    this.state = { ...this.state, activeSymbol: symbol, interval };
     saveState(this.state);
     this.renderAll();
     this.polling?.tickNow();
