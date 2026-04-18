@@ -1,7 +1,7 @@
 import type { PatternConfig } from "./types";
 
 export const defaultPatternConfig: PatternConfig = {
-  minSwingPct: 0.003,
+  minSwingPct: 0.015,
   patternMinBars: 10,
   patternMaxBars: 50,
   necklineTolPct: 0.002,
@@ -21,4 +21,11 @@ export const defaultPatternConfig: PatternConfig = {
   lineTouchMin: 2,
   lineRetestTol: 0.003,
   retestMaxBars: 10,
+  atrPeriod: 14,
+  pivotMinATR: 0.8,
+  pivotMinBars: 5,
+  cooldownBars: 10,
+  minConfidence: 0.6,
+  flagPoleMinATR: 2.0,
+  doubleMinDepthATR: 1.0,
 };

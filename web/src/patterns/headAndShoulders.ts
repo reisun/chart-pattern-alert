@@ -27,6 +27,14 @@ export function detectHeadAndShoulders(
     const shoulderDiff = Math.abs(ls.price - rs.price) / head.price;
     if (shoulderDiff > cfg.shoulderBalance) continue;
 
+    // Symmetry check: left/right side bar spans must not be too asymmetric
+    const leftBars = head.idx - ls.idx;
+    const rightBars = rs.idx - head.idx;
+    if (leftBars > 0 && rightBars > 0) {
+      const ratio = Math.max(leftBars, rightBars) / Math.min(leftBars, rightBars);
+      if (ratio > 3.0) continue;
+    }
+
     const neckline = Math.min(ln.price, rn.price);
     const last = candles[candles.length - 1];
     const confirmed = last.close < neckline * (1 - cfg.necklineTolPct);

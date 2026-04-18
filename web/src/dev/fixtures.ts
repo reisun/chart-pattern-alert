@@ -2,8 +2,7 @@ import type { Candle } from "../patterns/types";
 
 /**
  * Build a synthetic W-shape candle series with a clear double-bottom.
- * Used when the real API is rate-limited in dev or when bootstrapping the UI
- * without running docker.
+ * Amplitudes are large enough to pass ATR-based filters.
  */
 export function syntheticWShape(opts?: { startTime?: number; base?: number }): Candle[] {
   const startTime = opts?.startTime ?? Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 3;
@@ -12,17 +11,17 @@ export function syntheticWShape(opts?: { startTime?: number; base?: number }): C
 
   const path: number[] = [
     // descent
-    100, 99, 98, 96, 94, 92,
+    100, 98, 96, 93, 90, 86,
     // bottom 1
-    90, 91, 92,
+    82, 83, 85,
     // ride up to middle peak
-    93, 95, 96, 97,
+    88, 91, 94, 97,
     // down to bottom 2
-    96, 95, 93, 91,
+    94, 91, 88, 85,
     // bottom 2
-    90.5, 91,
+    82.5, 84,
     // rise and break neckline (97)
-    93, 95, 97, 98, 99, 100,
+    88, 92, 97, 99, 101, 103,
   ].map((x) => (x - 100 + base));
 
   return synthesize(path, startTime, stepSec);
@@ -38,17 +37,17 @@ export function syntheticMShape(opts?: { startTime?: number; base?: number }): C
 
   const path: number[] = [
     // ascent
-    100, 101, 102, 104, 106, 108,
+    100, 102, 104, 107, 110, 114,
     // top 1
-    110, 109, 108,
+    118, 117, 115,
     // retrace
-    107, 105, 104, 103,
+    112, 108, 105, 103,
     // up to top 2
-    104, 105, 107, 109,
+    106, 109, 113, 116,
     // top 2
-    109.5, 109,
+    117.5, 116,
     // break neckline (103) down
-    107, 105, 103, 102, 101, 100,
+    112, 108, 103, 101, 99, 97,
   ].map((x) => (x - 100 + base));
 
   return synthesize(path, startTime, stepSec);
@@ -61,19 +60,19 @@ export function syntheticIHSShape(opts?: { startTime?: number; base?: number }):
 
   const path: number[] = [
     // initial decline
-    100, 99, 98, 97, 96, 95,
-    // left shoulder (low ~92) – extended for bar span
-    94, 93, 92, 92.5, 93, 93.5, 94, 94.5, 95,
-    // neckline area (~97) – extra bars for span
-    96, 96.5, 97, 97.5, 97,
-    // head (low ~88) – extended with more bars
-    96, 94, 92, 90, 89, 88, 88.2, 88.5, 89, 90, 92, 94, 96,
-    // neckline area (~97) – extra bars for span
-    97, 97.5, 97,
-    // right shoulder (low ~92) – extended with more bars
-    96, 95, 94, 93, 92, 92.1, 92.2, 92.5, 93, 93.5, 94, 95, 96,
-    // neckline area and breakout (~97)
-    97, 97.5, 98, 99, 100,
+    100, 98, 96, 94, 92, 90,
+    // left shoulder (low ~85) – extended for bar span
+    88, 86, 85, 85.5, 86, 87, 88, 89, 90,
+    // neckline area (~95) – extra bars for span
+    92, 93, 95, 95.5, 95,
+    // head (low ~75) – extended with more bars
+    93, 90, 87, 83, 79, 75, 75.5, 76, 78, 81, 85, 89, 93,
+    // neckline area (~95) – extra bars for span
+    95, 95.5, 95,
+    // right shoulder (low ~85) – extended with more bars
+    93, 91, 89, 87, 85, 85.2, 85.5, 86, 87, 88, 89, 90, 92,
+    // neckline area and breakout (~95)
+    95, 96, 97, 99, 101,
   ].map((x) => x - 100 + base);
 
   return synthesize(path, startTime, stepSec);
@@ -86,19 +85,19 @@ export function syntheticHSShape(opts?: { startTime?: number; base?: number }): 
 
   const path: number[] = [
     // initial rise
-    100, 101, 102, 103, 104, 105,
-    // left shoulder (high ~108) – extended
-    106, 107, 108, 107.5, 107, 106.5, 106, 105.5, 105,
-    // neckline area (~103) – extra bars for span
-    104, 103.5, 103, 102.5, 103,
-    // head (high ~112) – extended with more bars
-    104, 106, 108, 110, 111, 112, 111.8, 111.5, 111, 110, 108, 106, 104,
-    // neckline area (~103) – extra bars for span
-    103, 102.5, 103,
-    // right shoulder (high ~108) – extended with more bars
-    104, 105, 106, 107, 108, 107.9, 107.8, 107.5, 107, 106.5, 106, 105, 104,
-    // neckline breakdown (~103)
-    103, 102.5, 102, 101, 100,
+    100, 102, 104, 106, 108, 110,
+    // left shoulder (high ~115) – extended
+    112, 114, 115, 114.5, 114, 113, 112, 111, 110,
+    // neckline area (~105) – extra bars for span
+    108, 106, 105, 104.5, 105,
+    // head (high ~125) – extended with more bars
+    108, 112, 116, 120, 123, 125, 124.5, 124, 122, 119, 115, 111, 107,
+    // neckline area (~105) – extra bars for span
+    105, 104.5, 105,
+    // right shoulder (high ~115) – extended with more bars
+    107, 109, 111, 113, 115, 114.8, 114.5, 114, 113, 112, 111, 109, 107,
+    // neckline breakdown (~105)
+    105, 103, 101, 99, 97,
   ].map((x) => x - 100 + base);
 
   return synthesize(path, startTime, stepSec);

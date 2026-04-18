@@ -7,6 +7,7 @@ export function detectDoubleTop(
   candles: Candle[],
   pivots: Pivot[],
   cfg: PatternConfig,
+  atr?: number,
 ): DetectedPattern[] {
   if (candles.length === 0 || pivots.length < 3) return [];
 
@@ -26,6 +27,12 @@ export function detectDoubleTop(
 
     const dropPct = (Math.min(a.price, c.price) - b.price) / Math.min(a.price, c.price);
     if (dropPct < cfg.minSwingPct) continue;
+
+    // ATR-based depth check: middle trough must be sufficiently below the tops
+    if (atr != null && atr > 0) {
+      const depth = Math.min(a.price, c.price) - b.price;
+      if (depth < atr * cfg.doubleMinDepthATR) continue;
+    }
 
     const neckline = b.price;
     const last = candles[candles.length - 1];

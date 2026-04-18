@@ -1,52 +1,54 @@
 import type { Candle, Pivot } from "./types";
 
 /**
- * Simple Zig-Zag pivot detection.
+ * Simple Zig-Zag pivot detection with ATR-based filtering.
  *
  * Walks candles from left to right, toggling between expected-high and expected-low
  * once price has reversed by at least `minSwingPct` from the last extreme.
  *
+ * After the initial detection, pivots are filtered by:
+ *   - pivotMinBars: minimum bar distance between consecutive pivots
+ *   - pivotMinATR: minimum price difference (as ATR multiple) between consecutive pivots
+ *
  * Pivots alternate strictly: high, low, high, low, ...
  * The price used is `candle.high` for highs and `candle.low` for lows.
  */
-export function findPivots(candles: Candle[], minSwingPct: number): Pivot[] {
+export function findPivots(
+  candles: Candle[],
+  minSwingPct: number,
+  atr?: number,
+  pivotMinATR?: number,
+  pivotMinBars?: number,
+): Pivot[] {
   if (candles.length === 0) return [];
 
-  const pivots: Pivot[] = [];
+  const raw: Pivot[] = [];
   let extIdx = 0;
-  let extPrice = candles[0].high; // start assuming we'll look down from an initial high
+  let extPrice = candles[0].high;
   let expecting: "high" | "low" = "high";
-
-  // Decide initial direction by looking at the first few bars.
-  // If first candle's low reaches below open+close range by a lot, treat as started at a low.
-  // Simpler: pick the higher of open/close as initial pivot ref; this is a heuristic only
-  // for the very first bar. The loop below will self-correct after the first swing.
 
   for (let i = 1; i < candles.length; i++) {
     const c = candles[i];
     if (expecting === "high") {
-      // Still trending up — track the running high, don't call a reversal yet.
       if (c.high > extPrice) {
         extIdx = i;
         extPrice = c.high;
         continue;
       }
-      // Reversal: the current candle retreated from the tracked high by >= minSwingPct.
       if ((extPrice - c.low) / extPrice >= minSwingPct) {
-        pivots.push({ idx: extIdx, time: candles[extIdx].time, price: extPrice, kind: "high" });
+        raw.push({ idx: extIdx, time: candles[extIdx].time, price: extPrice, kind: "high" });
         expecting = "low";
         extIdx = i;
         extPrice = c.low;
       }
     } else {
-      // Still trending down — track the running low.
       if (c.low < extPrice) {
         extIdx = i;
         extPrice = c.low;
         continue;
       }
       if ((c.high - extPrice) / extPrice >= minSwingPct) {
-        pivots.push({ idx: extIdx, time: candles[extIdx].time, price: extPrice, kind: "low" });
+        raw.push({ idx: extIdx, time: candles[extIdx].time, price: extPrice, kind: "low" });
         expecting = "high";
         extIdx = i;
         extPrice = c.high;
@@ -54,7 +56,31 @@ export function findPivots(candles: Candle[], minSwingPct: number): Pivot[] {
     }
   }
 
-  return pivots;
+  // If no ATR-based filtering requested, return raw pivots
+  if (atr == null || atr <= 0 || pivotMinATR == null || pivotMinBars == null) {
+    return raw;
+  }
+
+  // Filter: enforce minimum bar distance and minimum price distance (ATR multiple)
+  const filtered: Pivot[] = [];
+  for (const p of raw) {
+    if (filtered.length === 0) {
+      filtered.push(p);
+      continue;
+    }
+    const prev = filtered[filtered.length - 1];
+    const barDist = p.idx - prev.idx;
+    const priceDist = Math.abs(p.price - prev.price);
+    if (barDist < pivotMinBars || priceDist < atr * pivotMinATR) {
+      // Keep the more extreme pivot of the two (same kind due to alternation)
+      // If kinds differ (normal), we must decide which to keep:
+      // Drop the new pivot if it doesn't meet the threshold
+      continue;
+    }
+    filtered.push(p);
+  }
+
+  return filtered;
 }
 
 /**

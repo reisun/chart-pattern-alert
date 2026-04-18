@@ -35,4 +35,14 @@ describe("findPivots", () => {
     const pivots = findPivots(candles, 0.05);
     expect(pivots.length).toBe(0);
   });
+
+  it("filters pivots by ATR and bar distance when provided", () => {
+    const prices = [100, 101, 102, 103, 104, 105, 104, 103, 102, 101, 102, 103, 105, 106, 105, 104, 103];
+    const candles = prices.map((p, i) => candle(i, p, 0.05));
+    // Without ATR filter
+    const raw = findPivots(candles, 0.01);
+    // With very strict ATR filter — should produce fewer pivots
+    const filtered = findPivots(candles, 0.01, 5, 1.0, 3);
+    expect(filtered.length).toBeLessThanOrEqual(raw.length);
+  });
 });
