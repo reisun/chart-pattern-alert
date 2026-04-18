@@ -516,8 +516,8 @@ class JQuantsDataSource:
 
         if interval not in _JQUANTS_SUPPORTED_INTERVALS:
             raise DataSourceError(
-                f"unsupported interval for J-Quants: {interval!r} "
-                f"(supported: {sorted(_JQUANTS_SUPPORTED_INTERVALS)})"
+                f"日本株は日足以上のみ対応です（J-Quants Free プランの制約）。"
+                f" 選択中: {interval!r}、対応: {sorted(_JQUANTS_SUPPORTED_INTERVALS)}"
             )
 
         code = _normalize_jquants_code(symbol)

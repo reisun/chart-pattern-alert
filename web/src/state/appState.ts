@@ -13,6 +13,17 @@ export interface AppState {
 export type Interval = "5m" | "15m" | "1h" | "1d";
 export type Scale = "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y" | "2y";
 export const INTERVALS: Interval[] = ["5m", "15m", "1h", "1d"];
+export const JP_ONLY_INTERVALS: Interval[] = ["1d"];
+
+export function isJapaneseStock(symbol: string | null): boolean {
+  if (!symbol) return false;
+  const code = symbol.replace(/\.T$/i, "");
+  return /^\d{4,5}$/.test(code);
+}
+
+export function availableIntervals(symbol: string | null): Interval[] {
+  return isJapaneseStock(symbol) ? JP_ONLY_INTERVALS : INTERVALS;
+}
 export const SCALES: Scale[] = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y"];
 export const POLLING_OPTIONS: { label: string; ms: number }[] = [
   { label: "1min", ms: 60_000 },

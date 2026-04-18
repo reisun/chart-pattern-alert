@@ -1,4 +1,4 @@
-import { INTERVALS, POLLING_OPTIONS, SCALES, type Interval, type Scale } from "../state/appState";
+import { INTERVALS, POLLING_OPTIONS, SCALES, type Interval, type Scale, availableIntervals } from "../state/appState";
 import { getPermission, type NotifPermission } from "../services/notifier";
 
 export interface ControlsHandlers {
@@ -14,6 +14,7 @@ export interface ControlsState {
   scale: Scale;
   pollingMs: number;
   notificationEnabled: boolean;
+  activeSymbol: string | null;
 }
 
 export function renderControls(
@@ -23,12 +24,19 @@ export function renderControls(
 ): void {
   container.innerHTML = "";
 
+  const allowed = availableIntervals(state.activeSymbol);
   container.appendChild(makeSelect(
     "Interval",
-    INTERVALS.map((v) => ({ label: v, value: v })),
+    INTERVALS.map((v) => ({ label: v, value: v, disabled: !allowed.includes(v) })),
     state.interval,
     (v) => handlers.onIntervalChange(v as Interval),
   ));
+  if (allowed.length < INTERVALS.length) {
+    const hint = document.createElement("span");
+    hint.className = "muted hint";
+    hint.textContent = "日本株は日足のみ（J-Quants制約）";
+    container.appendChild(hint);
+  }
 
   container.appendChild(makeSelect(
     "Scale",
@@ -63,7 +71,7 @@ export function renderControls(
 
 function makeSelect(
   labelText: string,
-  options: { label: string; value: string }[],
+  options: { label: string; value: string; disabled?: boolean }[],
   current: string,
   onChange: (v: string) => void,
 ): HTMLElement {
@@ -73,7 +81,8 @@ function makeSelect(
   for (const o of options) {
     const opt = document.createElement("option");
     opt.value = o.value;
-    opt.textContent = o.label;
+    opt.textContent = o.disabled ? `${o.label} (N/A)` : o.label;
+    opt.disabled = !!o.disabled;
     if (o.value === current) opt.selected = true;
     select.appendChild(opt);
   }
