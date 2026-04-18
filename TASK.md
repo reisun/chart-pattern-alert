@@ -1,6 +1,6 @@
 # TASK.md — 残課題
 
-MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-pattern-alert/)）。以下は今後の運用・拡張タスク。
+MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-pattern-alert/)）。運用立ち上げ（A1–A3）完了、本番 API 到達済。以下は今後の拡張タスク。
 
 ---
 
@@ -10,7 +10,7 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 
 ### A1. 上流プロキシ（HTTPS 終端）の整備
 
-- **状態**: 未着手（本リポジトリの責務外 — 実装は利用者が選択）
+- **状態**: 完了（`reverse-proxy` リポジトリに相乗り、`https://reisun.asuscomm.com/chart-pattern-alert/` で公開）
 - **選択肢**: 同一ワークスペースの共用 `reverse-proxy` に相乗り／本プロジェクト専用リバプロ（Traefik / Nginx / Caddy）を単独導入／マネージド LB 等
 - **本プロジェクトへの要件**（どの選択肢でも共通）:
   - 共有 Docker ネットワーク `chart-pattern-alert-net` を `external: true` で参照
@@ -20,13 +20,13 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 
 ### A2. GitHub PAT に `actions:write` スコープ追加
 
-- **状態**: 未実施（L4 の `gh variable set` が 403 だった原因）
+- **状態**: 完了（Variables: write + Actions: write 付与済、2026-04-18 の手動デプロイで疎通確認）
 - **手順**: GitHub Settings → Developer settings → Personal access tokens → 該当 PAT を編集し `repo` + `actions:write`（Fine-grained なら Actions Variables: Read and write）を付与
 - **必要理由**: A3 の Variable 設定のため
 
 ### A3. `VITE_API_BASE_URL` を本番値に更新
 
-- **状態**: 現在は未設定（client.ts の fallback で `http://localhost:8000` が焼き込まれている）
+- **状態**: 完了（`https://reisun.asuscomm.com/chart-pattern-alert` を設定、2026-04-18 に手動デプロイ済。バンドル内で本番 URL が `||` の左辺に埋め込まれ localhost フォールバックには到達しない）
 - **前提**: A1 完了で公開 URL 確定、A2 完了で gh CLI 実行可能
 - **手順**:
   ```bash
@@ -82,11 +82,12 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **状態**: データ構造は複数銘柄対応済。UI は最小限
 - **内容**: 通知履歴画面、銘柄別ステータス一覧、タブドラッグ並べ替え、未読バッジ等
 
-### B5. データソース切替（yfinance ↔ Stooq / Alpha Vantage）
+### B5. データソース切替（TwelveData / yfinance / Finnhub / Alpha Vantage / J-Quants）
 
-- **状態**: API 側に `DataSource` Protocol は用意済（[`api/app/services/data_source.py`](./api/app/services/data_source.py)）
-- **内容**: 環境変数 `DATA_SOURCE` で切替、Stooq / Alpha Vantage 実装を追加
-- **動機**: yfinance のレート制限耐性向上
+- **状態**: 完了。`DATA_SOURCE` 環境変数で twelvedata / yfinance / finnhub / alphavantage / jquants を切替可能。デフォルトは TwelveData（無料枠 800req/日、米国株の日足・分足対応）。キャッシュ TTL を 300秒に延長
+- **内容**: TwelveData（デフォルト）、Finnhub、Alpha Vantage、J-Quants の 4 データソースを追加実装。環境変数で切替可能
+- **動機**: yfinance のレートリミット問題を TwelveData で根本解決
+- **日本株対応**: J-Quants API（JPX 公式）を実装。`JQUANTS_API_KEY` 設定時、日本株シンボル（4-5桁数字）は自動で J-Quants にルーティング（`AutoRoutingDataSource`）。Free プランは日足のみ・12週遅れデータ（日付範囲を自動調整）
 
 ---
 
