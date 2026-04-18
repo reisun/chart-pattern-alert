@@ -26,4 +26,4 @@ services:
 networks:
   chart-pattern-alert-net:
     name: chart-pattern-alert-net
-    driver: bridge
+    external: true

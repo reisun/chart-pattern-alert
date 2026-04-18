@@ -72,7 +72,12 @@ gh workflow run deploy.yml --repo reisun/chart-pattern-alert
 
 ### API
 
+本プロジェクトは親 `reverse-proxy` と共有する外部ネットワーク `chart-pattern-alert-net` に参加します。まだ存在しない場合は初回のみ作成してください。
+
 ```bash
+docker network ls | grep chart-pattern-alert-net \
+  || docker network create chart-pattern-alert-net
+
 cp .env.example .env
 docker compose up -d api
 curl http://localhost:8000/health
