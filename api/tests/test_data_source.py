@@ -7,6 +7,7 @@ import pytest
 
 from app.services.data_source import (
     AlphaVantageDataSource,
+    FinnhubDataSource,
     YFinanceDataSource,
     create_data_source,
     DataSourceError,
@@ -24,6 +25,11 @@ def test_create_data_source_yfinance():
 def test_create_data_source_alphavantage():
     ds = create_data_source("alphavantage")
     assert isinstance(ds, AlphaVantageDataSource)
+
+
+def test_create_data_source_finnhub():
+    ds = create_data_source("finnhub")
+    assert isinstance(ds, FinnhubDataSource)
 
 
 def test_create_data_source_unknown():
@@ -211,3 +217,118 @@ def test_alphavantage_monthly_function(mock_get):
     call_kwargs = mock_get.call_args
     params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
     assert params["function"] == "TIME_SERIES_MONTHLY"
+
+
+# ---- FinnhubDataSource tests ----
+
+import json
+
+_FINNHUB_OK_JSON = json.dumps({
+    "o": [170.0, 171.5, 172.0],
+    "h": [172.5, 173.0, 174.0],
+    "l": [169.0, 170.5, 171.0],
+    "c": [171.5, 172.0, 173.5],
+    "v": [50000000, 48000000, 52000000],
+    "t": [1713139200, 1713225600, 1713312000],
+    "s": "ok",
+})
+
+_FINNHUB_OK_NONE_VOLUME_JSON = json.dumps({
+    "o": [170.0, 171.5],
+    "h": [172.5, 173.0],
+    "l": [169.0, 170.5],
+    "c": [171.5, 172.0],
+    "v": [None, 48000000],
+    "t": [1713139200, 1713225600],
+    "s": "ok",
+})
+
+_FINNHUB_NO_DATA_JSON = json.dumps({"s": "no_data"})
+
+
+class _FakeJsonResponse:
+    def __init__(self, body: str, status_code: int = 200):
+        self._body = body
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import httpx
+            raise httpx.HTTPStatusError(
+                "error", request=MagicMock(), response=MagicMock(status_code=self.status_code)
+            )
+
+    def json(self):
+        return json.loads(self._body)
+
+
+@patch("app.services.data_source.httpx.get")
+def test_finnhub_parses_json(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_FINNHUB_OK_JSON)
+    ds = FinnhubDataSource(api_key="test_key")
+    candles, tz = ds.fetch_ohlcv("AAPL", "1d", "5d")
+    assert tz is None
+    assert len(candles) == 3
+    assert candles[0]["open"] == 170.0
+    assert candles[0]["volume"] == 50000000
+    assert candles[2]["close"] == 173.5
+    assert candles[0]["time"] <= candles[1]["time"] <= candles[2]["time"]
+
+
+@patch("app.services.data_source.httpx.get")
+def test_finnhub_volume_none_defaults_zero(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_FINNHUB_OK_NONE_VOLUME_JSON)
+    ds = FinnhubDataSource(api_key="test_key")
+    candles, _ = ds.fetch_ohlcv("AAPL", "1d", "5d")
+    assert len(candles) == 2
+    assert candles[0]["volume"] == 0
+    assert candles[1]["volume"] == 48000000
+
+
+@patch("app.services.data_source.httpx.get")
+def test_finnhub_no_data_raises_not_found(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_FINNHUB_NO_DATA_JSON)
+    ds = FinnhubDataSource(api_key="test_key")
+    with pytest.raises(NotFoundError):
+        ds.fetch_ohlcv("ZZZZ", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_finnhub_http_error_raises_datasource_error(mock_get):
+    import httpx as _httpx
+    mock_get.side_effect = _httpx.ConnectError("connection refused")
+    ds = FinnhubDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError):
+        ds.fetch_ohlcv("AAPL", "1d", "5d")
+
+
+def test_finnhub_unsupported_interval():
+    ds = FinnhubDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError, match="unsupported interval"):
+        ds.fetch_ohlcv("AAPL", "2m", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_finnhub_url_params(mock_get):
+    """Verify correct URL params are sent."""
+    mock_get.return_value = _FakeJsonResponse(_FINNHUB_OK_JSON)
+    ds = FinnhubDataSource(api_key="test_key")
+    ds.fetch_ohlcv("MSFT", "5m", "1mo")
+    call_kwargs = mock_get.call_args
+    params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+    assert params["symbol"] == "MSFT"
+    assert params["resolution"] == "5"
+    assert params["token"] == "test_key"
+    assert "from" in params
+    assert "to" in params
+    # from/to should be numeric strings
+    assert params["from"].isdigit()
+    assert params["to"].isdigit()
+
+
+@patch.dict("os.environ", {"FINNHUB_API_KEY": ""}, clear=False)
+def test_finnhub_api_key_not_set():
+    """API key not set raises DataSourceError."""
+    ds = FinnhubDataSource(api_key="")
+    with pytest.raises(DataSourceError, match="API key is not set"):
+        ds.fetch_ohlcv("AAPL", "1d", "5d")

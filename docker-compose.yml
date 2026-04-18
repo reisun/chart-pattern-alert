@@ -10,8 +10,9 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-https://reisun.github.io,http://localhost:5173}
       - CACHE_TTL_SECONDS=${CACHE_TTL_SECONDS:-90}
       - MAX_RANGE_DAYS=${MAX_RANGE_DAYS:-60}
-      - DATA_SOURCE=${DATA_SOURCE:-alphavantage}
+      - DATA_SOURCE=${DATA_SOURCE:-finnhub}
       - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
     ports:
       # 開発用にホスト公開。
       # 本番では上流プロキシが同一ネットワーク内から参照するため、
