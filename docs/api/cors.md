@@ -3,7 +3,7 @@
 ## 想定オリジン
 
 - 本番(GitHub Pages): `https://reisun.github.io`
-- 本番(自宅リバプロ経由): リバプロ側で同オリジン化されるケースあり。同オリジンなら CORS は不要
+- 本番(上流プロキシ経由): 上流プロキシ側で同オリジン化されるケースあり。同オリジンなら CORS は不要
 - 開発: `http://localhost:5173`（Vite dev）
 
 ## 実装
@@ -47,7 +47,7 @@ CORS_ORIGINS=https://reisun.github.io,http://localhost:5173
 
 ## 本番構成が同一オリジンになる場合
 
-- リバプロ側で `https://<home-domain>/api/...` に集約すれば同一オリジンに。その場合 CORS 不要
+- 上流プロキシ側で `https://<public-domain>/api/...` に集約すれば同一オリジンに。その場合 CORS 不要
 - CORS ヘッダが付いていても害はないのでそのまま残してよい
 
 ## トラブル時

@@ -55,7 +55,7 @@
 
 - [infra/docker-compose.md](./infra/docker-compose.md) — サービス構成
 - [infra/deploy-github-pages.md](./infra/deploy-github-pages.md) — CI/CD、Pages デプロイ
-- [infra/reverse-proxy-assumption.md](./infra/reverse-proxy-assumption.md) — 本プロジェクトのスコープ外明示（自宅リバプロ別課題）
+- [infra/upstream-proxy-contract.md](./infra/upstream-proxy-contract.md) — 上流プロキシ（HTTPS 終端）に期待する契約仕様。具体実装（共用相乗り／単独導入）は利用者の選択
 
 ## 段階
 
