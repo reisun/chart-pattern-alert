@@ -1,4 +1,6 @@
 import { StorageKeys, ensureSchema, getJson, setJson } from "./storage";
+import type { PatternKind } from "../patterns/types";
+import { ALL_PATTERN_KINDS } from "../patterns/types";
 
 export interface AppState {
   symbols: string[];
@@ -8,6 +10,7 @@ export interface AppState {
   pollingMs: number;
   notificationEnabled: boolean;
   seenPatternIds: string[];
+  enabledPatterns: PatternKind[];
 }
 
 export type Interval = "5m" | "15m" | "1h" | "1d";
@@ -41,6 +44,7 @@ export const DEFAULT_STATE: AppState = {
   pollingMs: 300_000,
   notificationEnabled: false,
   seenPatternIds: [],
+  enabledPatterns: [...ALL_PATTERN_KINDS],
 };
 
 const MAX_SEEN = 500;
@@ -55,6 +59,7 @@ export function loadState(): AppState {
     pollingMs: getJson<number>(StorageKeys.defaultsPollingMs, DEFAULT_STATE.pollingMs),
     notificationEnabled: getJson<boolean>(StorageKeys.notificationEnabled, DEFAULT_STATE.notificationEnabled),
     seenPatternIds: getJson<string[]>(StorageKeys.seenPatternIds, DEFAULT_STATE.seenPatternIds),
+    enabledPatterns: getJson<PatternKind[]>(StorageKeys.enabledPatterns, DEFAULT_STATE.enabledPatterns),
   };
 }
 
@@ -66,6 +71,7 @@ export function saveState(state: AppState): void {
   setJson(StorageKeys.defaultsPollingMs, state.pollingMs);
   setJson(StorageKeys.notificationEnabled, state.notificationEnabled);
   setJson(StorageKeys.seenPatternIds, state.seenPatternIds.slice(-MAX_SEEN));
+  setJson(StorageKeys.enabledPatterns, state.enabledPatterns);
 }
 
 export function addSeen(state: AppState, ids: string[]): string[] {

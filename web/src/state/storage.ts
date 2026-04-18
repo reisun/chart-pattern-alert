@@ -52,5 +52,6 @@ export const StorageKeys = {
   notificationEnabled: "notificationEnabled",
   apiBaseUrl: "apiBaseUrl",
   seenPatternIds: "seenPatternIds",
+  enabledPatterns: "enabledPatterns",
   schema: "schema",
 } as const;

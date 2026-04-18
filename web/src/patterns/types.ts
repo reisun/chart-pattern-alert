@@ -30,6 +30,45 @@ export type PatternKind =
 
 export type PatternDirection = "bullish" | "bearish";
 
+export const ALL_PATTERN_KINDS: PatternKind[] = [
+  "double_bottom",
+  "double_top",
+  "inverse_head_and_shoulders",
+  "head_and_shoulders",
+  "ascending_flag",
+  "descending_flag",
+  "ascending_triangle",
+  "descending_triangle",
+  "flip_up",
+  "flip_down",
+];
+
+export const PATTERN_LABELS: Record<PatternKind, string> = {
+  double_bottom: "ダブルボトム",
+  double_top: "ダブルトップ",
+  inverse_head_and_shoulders: "逆三尊",
+  head_and_shoulders: "三尊",
+  ascending_flag: "上昇フラッグ",
+  descending_flag: "下降フラッグ",
+  ascending_triangle: "上昇トライアングル",
+  descending_triangle: "下降トライアングル",
+  flip_up: "レジサポ転換↑",
+  flip_down: "サポレジ転換↓",
+};
+
+export const PATTERN_SHORT_LABELS: Record<PatternKind, string> = {
+  double_bottom: "Wボトム",
+  double_top: "Mトップ",
+  inverse_head_and_shoulders: "逆三尊",
+  head_and_shoulders: "三尊",
+  ascending_flag: "上昇F",
+  descending_flag: "下降F",
+  ascending_triangle: "上昇△",
+  descending_triangle: "下降▽",
+  flip_up: "転換↑",
+  flip_down: "転換↓",
+};
+
 export interface DetectedPattern {
   id: string; // stable hash of kind+symbol+markerTime+neckline bucket
   kind: PatternKind;

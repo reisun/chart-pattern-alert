@@ -7,24 +7,8 @@ import {
   type Time,
   type SeriesMarker,
 } from "lightweight-charts";
-import type { Candle, DetectedPattern, PatternKind } from "../patterns/types";
-
-const MARKER_LABELS: Record<PatternKind, string> = {
-  double_bottom: "DB",
-  double_top: "DT",
-  inverse_head_and_shoulders: "iH&S",
-  head_and_shoulders: "H&S",
-  ascending_flag: "A-Flag",
-  descending_flag: "D-Flag",
-  ascending_triangle: "A-Tri",
-  descending_triangle: "D-Tri",
-  flip_up: "Flip↑",
-  flip_down: "Flip↓",
-};
-
-function markerText(kind: PatternKind): string {
-  return MARKER_LABELS[kind];
-}
+import type { Candle, DetectedPattern } from "../patterns/types";
+import { PATTERN_SHORT_LABELS } from "../patterns/types";
 
 export interface ChartHandle {
   setData(candles: Candle[]): void;
@@ -74,7 +58,7 @@ export function createChartView(container: HTMLElement): ChartHandle {
         position: p.direction === "bullish" ? "belowBar" : "aboveBar",
         color: p.direction === "bullish" ? "#26a69a" : "#ef5350",
         shape: p.direction === "bullish" ? "arrowUp" : "arrowDown",
-        text: markerText(p.kind),
+        text: PATTERN_SHORT_LABELS[p.kind],
       }));
       markers.sort((a, b) => (a.time as number) - (b.time as number));
       series.setMarkers(markers);

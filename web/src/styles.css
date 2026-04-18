@@ -78,6 +78,20 @@ html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: 
 .feed-item .bear { color: var(--bear); }
 .feed-item .time { color: var(--text-muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
 
+.pattern-filter {
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  width: 100%; padding-top: 6px; border-top: 1px solid var(--border); margin-top: 4px;
+}
+.filter-title { color: var(--text-muted); margin-right: 4px; white-space: nowrap; }
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: #10141c; border: 1px solid var(--border); border-radius: 12px;
+  padding: 2px 8px; font-size: 11px; cursor: pointer; white-space: nowrap;
+}
+.filter-chip:has(input:checked) { border-color: var(--accent); color: var(--accent); }
+.filter-chip input { width: 0; height: 0; margin: 0; opacity: 0; position: absolute; }
+.hint { font-size: 11px; margin-left: 4px; }
+
 .hidden { display: none; }
 .muted { color: var(--text-muted); }
 .error { color: var(--bear); font-size: 12px; padding: 4px 14px; }

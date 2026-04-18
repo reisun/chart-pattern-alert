@@ -1,6 +1,7 @@
 import { ApiError, fetchOhlcv } from "./api/client";
 import { detectAll, defaultPatternConfig } from "./patterns";
-import type { Candle, DetectedPattern, PatternKind } from "./patterns/types";
+import type { Candle, DetectedPattern } from "./patterns/types";
+import { PATTERN_LABELS } from "./patterns/types";
 import { notifyPattern, requestPermission, getPermission } from "./services/notifier";
 import { startPolling, type PollingHandle } from "./services/polling";
 import { DEFAULT_STATE, addSeen, loadState, saveState, availableIntervals, type AppState, type Interval, type Scale } from "./state/appState";
@@ -76,6 +77,7 @@ export class App {
         pollingMs: this.state.pollingMs,
         notificationEnabled: this.state.notificationEnabled,
         activeSymbol: this.state.activeSymbol,
+        enabledPatterns: this.state.enabledPatterns,
       },
       {
         onIntervalChange: (v: Interval) => {
@@ -95,6 +97,15 @@ export class App {
         },
         onToggleNotification: () => this.toggleNotification(),
         onRefresh: () => this.polling?.tickNow(),
+        onPatternToggle: (kind, enabled) => {
+          const ep = enabled
+            ? [...this.state.enabledPatterns, kind]
+            : this.state.enabledPatterns.filter((k) => k !== kind);
+          this.state = { ...this.state, enabledPatterns: ep };
+          saveState(this.state);
+          this.renderAll();
+          this.polling?.tickNow();
+        },
       },
     );
   }
@@ -164,7 +175,8 @@ export class App {
       const candles: Candle[] = res.candles;
       this.clearError();
       this.chart?.setData(candles);
-      const patterns = detectAll(candles, defaultPatternConfig);
+      const allPatterns = detectAll(candles, defaultPatternConfig);
+      const patterns = allPatterns.filter((p) => this.state.enabledPatterns.includes(p.kind));
       this.chart?.setMarkers(patterns);
       this.handlePatterns(sym, patterns);
       this.setStatus(`ok · ${candles.length} bars`, "ok");
@@ -201,19 +213,7 @@ export class App {
           const t = new Date(p.markerTime * 1000).toLocaleString();
           const dirClass = p.direction === "bullish" ? "bull" : "bear";
           const arrow = p.direction === "bullish" ? "▲" : "▼";
-          const kindLabels: Record<PatternKind, string> = {
-            double_bottom: "Double Bottom",
-            double_top: "Double Top",
-            inverse_head_and_shoulders: "Inverse H&S",
-            head_and_shoulders: "H&S",
-            ascending_flag: "Ascending Flag",
-            descending_flag: "Descending Flag",
-            ascending_triangle: "Ascending Triangle",
-            descending_triangle: "Descending Triangle",
-            flip_up: "Flip Up",
-            flip_down: "Flip Down",
-          };
-          const kind = kindLabels[p.kind];
+          const kind = PATTERN_LABELS[p.kind];
           const neck = p.neckline ? ` · neckline ${p.neckline.toFixed(2)}` : "";
           return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind}</span>${neck} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
         }).join("");
