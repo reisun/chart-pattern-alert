@@ -8,6 +8,7 @@ import pytest
 from app.services.data_source import (
     AlphaVantageDataSource,
     FinnhubDataSource,
+    TwelveDataDataSource,
     YFinanceDataSource,
     create_data_source,
     DataSourceError,
@@ -30,6 +31,11 @@ def test_create_data_source_alphavantage():
 def test_create_data_source_finnhub():
     ds = create_data_source("finnhub")
     assert isinstance(ds, FinnhubDataSource)
+
+
+def test_create_data_source_twelvedata():
+    ds = create_data_source("twelvedata")
+    assert isinstance(ds, TwelveDataDataSource)
 
 
 def test_create_data_source_unknown():
@@ -332,3 +338,149 @@ def test_finnhub_api_key_not_set():
     ds = FinnhubDataSource(api_key="")
     with pytest.raises(DataSourceError, match="API key is not set"):
         ds.fetch_ohlcv("AAPL", "1d", "5d")
+
+
+# ---- TwelveDataDataSource tests ----
+
+_TD_OK_JSON = json.dumps({
+    "meta": {
+        "symbol": "AAPL",
+        "interval": "1day",
+        "currency": "USD",
+        "exchange_timezone": "America/New_York",
+        "exchange": "NASDAQ",
+        "type": "Common Stock",
+    },
+    "values": [
+        {"datetime": "2024-04-17", "open": "172.0", "high": "174.0", "low": "171.0", "close": "173.5", "volume": "52000000"},
+        {"datetime": "2024-04-16", "open": "171.5", "high": "173.0", "low": "170.5", "close": "172.0", "volume": "48000000"},
+        {"datetime": "2024-04-15", "open": "170.0", "high": "172.5", "low": "169.0", "close": "171.5", "volume": "50000000"},
+    ],
+    "status": "ok",
+})
+
+_TD_OK_NO_VOLUME_JSON = json.dumps({
+    "meta": {
+        "symbol": "AAPL",
+        "interval": "1day",
+        "exchange_timezone": "America/New_York",
+    },
+    "values": [
+        {"datetime": "2024-04-15", "open": "170.0", "high": "172.5", "low": "169.0", "close": "171.5", "volume": "0"},
+        {"datetime": "2024-04-16", "open": "171.5", "high": "173.0", "low": "170.5", "close": "172.0", "volume": ""},
+    ],
+    "status": "ok",
+})
+
+_TD_ERROR_NOT_FOUND_JSON = json.dumps({
+    "code": 404,
+    "message": "Data not found",
+    "status": "error",
+})
+
+_TD_ERROR_AUTH_JSON = json.dumps({
+    "code": 401,
+    "message": "Invalid API key",
+    "status": "error",
+})
+
+_TD_ERROR_RATE_LIMIT_JSON = json.dumps({
+    "code": 429,
+    "message": "Too many requests",
+    "status": "error",
+})
+
+
+@patch("app.services.data_source.httpx.get")
+def test_twelvedata_parses_json(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_TD_OK_JSON)
+    ds = TwelveDataDataSource(api_key="test_key")
+    candles, tz = ds.fetch_ohlcv("AAPL", "1d", "5d")
+    assert tz == "America/New_York"
+    assert len(candles) == 3
+    assert candles[0]["open"] == 170.0
+    assert candles[0]["volume"] == 50000000
+    assert candles[2]["close"] == 173.5
+    # sorted ascending by time (values come descending from API)
+    assert candles[0]["time"] <= candles[1]["time"] <= candles[2]["time"]
+
+
+@patch("app.services.data_source.httpx.get")
+def test_twelvedata_volume_missing_defaults_zero(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_TD_OK_NO_VOLUME_JSON)
+    ds = TwelveDataDataSource(api_key="test_key")
+    candles, _ = ds.fetch_ohlcv("AAPL", "1d", "5d")
+    assert len(candles) == 2
+    assert candles[0]["volume"] == 0
+    assert candles[1]["volume"] == 0
+
+
+@patch("app.services.data_source.httpx.get")
+def test_twelvedata_not_found_raises_not_found(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_TD_ERROR_NOT_FOUND_JSON)
+    ds = TwelveDataDataSource(api_key="test_key")
+    with pytest.raises(NotFoundError):
+        ds.fetch_ohlcv("ZZZZ", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_twelvedata_auth_error_raises_datasource_error(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_TD_ERROR_AUTH_JSON)
+    ds = TwelveDataDataSource(api_key="bad_key")
+    with pytest.raises(DataSourceError, match="code=401"):
+        ds.fetch_ohlcv("AAPL", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_twelvedata_rate_limit_raises_datasource_error(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_TD_ERROR_RATE_LIMIT_JSON)
+    ds = TwelveDataDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError, match="code=429"):
+        ds.fetch_ohlcv("AAPL", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_twelvedata_http_error_raises_datasource_error(mock_get):
+    import httpx as _httpx
+    mock_get.side_effect = _httpx.ConnectError("connection refused")
+    ds = TwelveDataDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError):
+        ds.fetch_ohlcv("AAPL", "1d", "5d")
+
+
+def test_twelvedata_unsupported_interval():
+    ds = TwelveDataDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError, match="unsupported interval"):
+        ds.fetch_ohlcv("AAPL", "2m", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_twelvedata_url_params(mock_get):
+    """Verify correct URL params are sent."""
+    mock_get.return_value = _FakeJsonResponse(_TD_OK_JSON)
+    ds = TwelveDataDataSource(api_key="test_key")
+    ds.fetch_ohlcv("MSFT", "5m", "1mo")
+    call_kwargs = mock_get.call_args
+    params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+    assert params["symbol"] == "MSFT"
+    assert params["interval"] == "5min"
+    assert params["outputsize"] == "1000"
+    assert params["apikey"] == "test_key"
+    assert params["format"] == "JSON"
+
+
+@patch.dict("os.environ", {"TWELVE_DATA_API_KEY": ""}, clear=False)
+def test_twelvedata_api_key_not_set():
+    """API key not set raises DataSourceError."""
+    ds = TwelveDataDataSource(api_key="")
+    with pytest.raises(DataSourceError, match="API key is not set"):
+        ds.fetch_ohlcv("AAPL", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_twelvedata_timezone_from_meta(mock_get):
+    """Timezone is extracted from meta.exchange_timezone."""
+    mock_get.return_value = _FakeJsonResponse(_TD_OK_JSON)
+    ds = TwelveDataDataSource(api_key="test_key")
+    _, tz = ds.fetch_ohlcv("AAPL", "1d", "5d")
+    assert tz == "America/New_York"

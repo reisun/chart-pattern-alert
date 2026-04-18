@@ -10,7 +10,8 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-https://reisun.github.io,http://localhost:5173}
       - CACHE_TTL_SECONDS=${CACHE_TTL_SECONDS:-300}
       - MAX_RANGE_DAYS=${MAX_RANGE_DAYS:-60}
-      - DATA_SOURCE=${DATA_SOURCE:-yfinance}
+      - DATA_SOURCE=${DATA_SOURCE:-twelvedata}
+      - TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY:-}
       - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
     ports:

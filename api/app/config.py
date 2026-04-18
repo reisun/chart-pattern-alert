@@ -23,5 +23,5 @@ def load_settings() -> Settings:
         ),
         cache_ttl_seconds=int(os.getenv("CACHE_TTL_SECONDS", "300")),
         max_range_days=int(os.getenv("MAX_RANGE_DAYS", "60")),
-        data_source=os.getenv("DATA_SOURCE", "yfinance"),
+        data_source=os.getenv("DATA_SOURCE", "twelvedata"),
     )

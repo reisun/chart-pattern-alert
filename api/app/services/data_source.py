@@ -354,8 +354,129 @@ class FinnhubDataSource:
         return candles, None
 
 
+
+# ---- TwelveData mappings ----
+
+_TD_INTERVAL_MAP: dict[str, str] = {
+    "1m": "1min",
+    "5m": "5min",
+    "15m": "15min",
+    "30m": "30min",
+    "1h": "1h",
+    "1d": "1day",
+    "1wk": "1week",
+    "1mo": "1month",
+}
+
+_RANGE_OUTPUTSIZE: dict[str, int] = {
+    "1d": 100,
+    "5d": 500,
+    "1mo": 1000,
+    "3mo": 2000,
+    "6mo": 3000,
+    "1y": 5000,
+    "2y": 5000,
+    "5y": 5000,
+    "max": 5000,
+}
+
+
+class TwelveDataDataSource:
+    """TwelveData Time Series API implementation.
+
+    Uses JSON endpoint: GET /time_series
+    Requires TWELVE_DATA_API_KEY environment variable.
+    """
+
+    _BASE_URL = "https://api.twelvedata.com/time_series"
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key or os.getenv("TWELVE_DATA_API_KEY", "")
+
+    def fetch_ohlcv(
+        self, symbol: str, interval: str, range_: str
+    ) -> tuple[list[Candle], str | None]:
+        if not self._api_key:
+            raise DataSourceError(
+                "TwelveData API key is not set. "
+                "Set TWELVE_DATA_API_KEY environment variable."
+            )
+
+        td_interval = _TD_INTERVAL_MAP.get(interval)
+        if td_interval is None:
+            raise DataSourceError(f"unsupported interval for TwelveData: {interval!r}")
+
+        outputsize = _RANGE_OUTPUTSIZE.get(range_)
+        if outputsize is None:
+            raise DataSourceError(f"unsupported range for TwelveData: {range_!r}")
+
+        params: dict[str, str] = {
+            "symbol": symbol,
+            "interval": td_interval,
+            "outputsize": str(outputsize),
+            "apikey": self._api_key,
+            "format": "JSON",
+        }
+
+        try:
+            resp = httpx.get(self._BASE_URL, params=params, timeout=30.0)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning("TwelveData fetch failed: symbol=%s err=%s", symbol, exc)
+            raise DataSourceError(str(exc)) from exc
+
+        data = resp.json()
+        status = data.get("status")
+        if status != "ok":
+            code = data.get("code", 0)
+            message = data.get("message", "unknown error")
+            if code == 404 or "not found" in message.lower():
+                raise NotFoundError(
+                    f"no data for symbol={symbol!r} interval={interval!r} range={range_!r}"
+                )
+            raise DataSourceError(f"TwelveData error (code={code}): {message}")
+
+        values = data.get("values", [])
+        if not values:
+            raise NotFoundError(
+                f"no data for symbol={symbol!r} interval={interval!r} range={range_!r}"
+            )
+
+        meta = data.get("meta", {})
+        tz_name: str | None = meta.get("exchange_timezone")
+
+        candles: list[Candle] = []
+        for v in values:
+            ts = pd.Timestamp(v["datetime"])
+            utc_ts = _to_utc_epoch(ts)
+            vol_raw = v.get("volume")
+            if vol_raw is None or vol_raw == "":
+                volume = 0
+            else:
+                volume = int(float(vol_raw))
+            candles.append(
+                Candle(
+                    time=utc_ts,
+                    open=float(v["open"]),
+                    high=float(v["high"]),
+                    low=float(v["low"]),
+                    close=float(v["close"]),
+                    volume=volume,
+                )
+            )
+
+        candles.sort(key=lambda c: c["time"])
+        logger.info(
+            "twelvedata ok: symbol=%s interval=%s range=%s rows=%d tz=%s",
+            symbol, interval, range_, len(candles), tz_name,
+        )
+        return candles, tz_name
+
+
 def create_data_source(name: str) -> DataSource:
     """Factory: create a DataSource by name."""
+    if name == "twelvedata":
+        return TwelveDataDataSource()
     if name == "finnhub":
         return FinnhubDataSource()
     if name == "alphavantage":
