@@ -34,9 +34,11 @@
 - インメモリ TTL キャッシュ（`CACHE_TTL_SECONDS`）
 - CORS は `CORS_ORIGINS`（カンマ区切り env）で制御
 
-### Reverse Proxy（別プロジェクト・スコープ外）
-- 自宅ドメイン/TLS/ルーティングを担当
-- 本プロジェクトは docker ネットワーク内で `api:8000` として可用であればよい
+### Upstream Reverse Proxy（本リポジトリの責務外）
+- 公開ドメイン / TLS 終端 / ルーティングを担当
+- 具体実装（共用リバプロ相乗り／専用リバプロ単独導入／マネージド LB など）は利用者の選択
+- 本プロジェクトは docker ネットワーク内で `api:8000` として HTTP 可用であればよい
+- 契約仕様: [infra/upstream-proxy-contract.md](./infra/upstream-proxy-contract.md)
 
 ## データフロー（MVP）
 

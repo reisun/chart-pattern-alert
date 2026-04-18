@@ -4,7 +4,7 @@
 
 - **公開 URL**: https://reisun.github.io/chart-pattern-alert/
 - **フロント**: Vite + TypeScript + [lightweight-charts](https://github.com/tradingview/lightweight-charts) → GitHub Pages
-- **API**: FastAPI + yfinance → 自宅 Docker ネットワーク内公開（リバプロは別プロジェクト）
+- **API**: FastAPI + yfinance → Docker ネットワーク内で HTTP 公開（HTTPS 終端は上流プロキシに委譲）
 - **パターン**: 10 種を設計、MVP 実装は **ダブルボトム／ダブルトップ**
 
 ## ディレクトリ構成
@@ -32,7 +32,7 @@ chart-pattern-alert/
 │   ├── frontend/{screens,services}/
 │   ├── api/{endpoints,data-source.md,cors.md}/
 │   ├── patterns/                  # 10 パターン + common
-│   └── infra/                     # docker-compose, deploy, reverse-proxy
+│   └── infra/                     # docker-compose, deploy, upstream-proxy-contract
 ├── docker-compose.yml
 ├── .env.example
 └── .github/workflows/deploy.yml   # Pages デプロイ
@@ -42,7 +42,7 @@ chart-pattern-alert/
 
 ## 主要な前提
 
-- **自宅 Docker のリバースプロキシは別プロジェクト**。本リポジトリではリバプロは扱わず、api は docker ネットワーク内で公開されているまで。詳細は [docs/infra/reverse-proxy-assumption.md](./docs/infra/reverse-proxy-assumption.md)
+- **HTTPS 終端・公開ポート・ドメインは本リポジトリの責務外**。api は HTTP のみで共有ネットワーク内に公開し、TLS 終端は上流プロキシに委譲する（上流プロキシの実装は利用者が選択：共用リバプロ相乗り／専用リバプロ単独導入のいずれも可）。契約仕様は [docs/infra/upstream-proxy-contract.md](./docs/infra/upstream-proxy-contract.md)
 - **パターン検出はフロント側 (TS) 実装**。API は OHLCV ラッパーに責務限定。将来 `POST /detect` で分離可能
 - **通知はフォアグラウンドのみ**。バックグラウンド Push（Web Push）は MVP 対象外
 - **公開 URL から API へ到達できないとき**、フロントは合成データフォールバックでチャート描画を継続（UI は停止しない）
@@ -61,7 +61,7 @@ chart-pattern-alert/
 ### 本番 (GitHub Pages) の `VITE_API_BASE_URL`
 
 GitHub Actions の Repository Variables に `VITE_API_BASE_URL` を設定しています。ビルド時に注入されます。
-自宅リバースプロキシを整備して公開 URL が決まったら、以下で更新できます。
+上流プロキシを整備して公開 URL が決まったら、以下で更新できます。
 
 ```bash
 gh variable set VITE_API_BASE_URL --body "https://<your-home-domain>" --repo reisun/chart-pattern-alert
@@ -72,7 +72,7 @@ gh workflow run deploy.yml --repo reisun/chart-pattern-alert
 
 ### API
 
-本プロジェクトは親 `reverse-proxy` と共有する外部ネットワーク `chart-pattern-alert-net` に参加します。まだ存在しない場合は初回のみ作成してください。
+本プロジェクトは外部ネットワーク `chart-pattern-alert-net` に参加します（上流プロキシと共有する用途）。まだ存在しない場合は初回のみ作成してください。
 
 ```bash
 docker network ls | grep chart-pattern-alert-net \
@@ -112,9 +112,9 @@ cd web && npm install && npm test
 - **フロント**: `main` への push で GitHub Actions が `web/dist/` をビルドし GitHub Pages に配信
   - 公開 URL: https://reisun.github.io/chart-pattern-alert/
   - Workflow: [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)
-- **API**: 自宅 Docker で `docker compose up -d api`
-  - ネットワーク: `chart-pattern-alert-net`（別プロジェクトのリバプロが参照する想定）
-  - 詳細: [docs/infra/reverse-proxy-assumption.md](./docs/infra/reverse-proxy-assumption.md)
+- **API**: `docker compose up -d api` で HTTP 公開
+  - ネットワーク: `chart-pattern-alert-net`（上流プロキシが参照する想定）
+  - 契約仕様: [docs/infra/upstream-proxy-contract.md](./docs/infra/upstream-proxy-contract.md)
 
 ## ロードマップ
 
@@ -135,7 +135,7 @@ cd web && npm install && npm test
 - 上位足整合の簡易表示、出来高判定加点
 - 複数銘柄タブの UX 改善（通知履歴、絞り込み）
 - Service Worker の最小限強化（タブ閉じ時の Web Push は対象外方針のまま）
-- 自宅リバプロ整備 → 本番 API URL 確定 → `VITE_API_BASE_URL` 更新
+- 上流プロキシ整備 → 本番 API URL 確定 → `VITE_API_BASE_URL` 更新
 
 ## 開発ルール
 

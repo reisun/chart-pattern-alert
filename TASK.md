@@ -8,15 +8,15 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 
 本番 API 到達のために必要。完了すると公開 URL から実株価データが取得できるようになる。
 
-### A1. 自宅 Docker リバースプロキシ別プロジェクトの整備
+### A1. 上流プロキシ（HTTPS 終端）の整備
 
-- **状態**: 未着手（別プロジェクト扱い）
-- **内容**: Traefik / Nginx / Caddy いずれかで TLS 終端 + ルーティング
-- **本プロジェクトへの要件**:
+- **状態**: 未着手（本リポジトリの責務外 — 実装は利用者が選択）
+- **選択肢**: 同一ワークスペースの共用 `reverse-proxy` に相乗り／本プロジェクト専用リバプロ（Traefik / Nginx / Caddy）を単独導入／マネージド LB 等
+- **本プロジェクトへの要件**（どの選択肢でも共通）:
   - 共有 Docker ネットワーク `chart-pattern-alert-net` を `external: true` で参照
   - Upstream: `api:8000`、healthcheck path: `/health`
   - 公開パス: `/` 直下にマウント推奨（`/api/` にする場合は後述 A3 の値と整合）
-- **参照**: [`docs/infra/reverse-proxy-assumption.md`](./docs/infra/reverse-proxy-assumption.md)
+- **参照**: [`docs/infra/upstream-proxy-contract.md`](./docs/infra/upstream-proxy-contract.md)
 
 ### A2. GitHub PAT に `actions:write` スコープ追加
 
@@ -41,10 +41,10 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
   curl -s https://reisun.github.io/chart-pattern-alert/ | grep -oE '/chart-pattern-alert/assets/[^"]+\.js' | head -1
   ```
 
-### A4. API 側 CORS にリバプロ公開オリジンを追加（必要時のみ）
+### A4. API 側 CORS に上流プロキシ公開オリジンを追加（必要時のみ）
 
 - **状態**: 現在 `CORS_ORIGINS=https://reisun.github.io,http://localhost:5173` が既定
-- **必要ケース**: リバプロが GitHub Pages とは別オリジンを提示する構成の場合
+- **必要ケース**: 上流プロキシが GitHub Pages とは別オリジンを提示する構成の場合
 - **手順**: `.env` の `CORS_ORIGINS` にカンマ区切りで追加 → `docker compose restart api`
 
 ---

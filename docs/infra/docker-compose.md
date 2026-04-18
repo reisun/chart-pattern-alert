@@ -27,16 +27,16 @@ docker compose up -d api
   - `CACHE_TTL_SECONDS`
   - `MAX_RANGE_DAYS`
 - ports（開発用）: `8000:8000`
-  - 本番（自宅 Docker）ではリバプロが同一ネットワーク内から参照するため、ポート公開は不要または削除可
+  - 本番では上流プロキシが同一ネットワーク内から参照するため、ポート公開は不要または削除可
 - healthcheck: `/health` を定期的に叩く
 
 ## ネットワーク
 
 - `chart-pattern-alert-net`（bridge）
-- 将来リバプロ側のプロジェクトから `external: true` で参照する想定:
+- 上流プロキシ側から `external: true` で参照する想定（契約仕様は [upstream-proxy-contract.md](./upstream-proxy-contract.md)）:
 
 ```yaml
-# 参考(リバプロ側 compose)
+# 参考（上流プロキシ側 compose）
 networks:
   chart-pattern-alert-net:
     external: true
