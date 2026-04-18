@@ -1,5 +1,7 @@
 import { INTERVALS, POLLING_OPTIONS, SCALES, type Interval, type Scale, availableIntervals } from "../state/appState";
 import { getPermission, type NotifPermission } from "../services/notifier";
+import type { PatternKind } from "../patterns/types";
+import { ALL_PATTERN_KINDS, PATTERN_LABELS } from "../patterns/types";
 
 export interface ControlsHandlers {
   onIntervalChange: (v: Interval) => void;
@@ -7,6 +9,7 @@ export interface ControlsHandlers {
   onPollingChange: (ms: number) => void;
   onToggleNotification: () => void;
   onRefresh: () => void;
+  onPatternToggle: (kind: PatternKind, enabled: boolean) => void;
 }
 
 export interface ControlsState {
@@ -15,6 +18,7 @@ export interface ControlsState {
   pollingMs: number;
   notificationEnabled: boolean;
   activeSymbol: string | null;
+  enabledPatterns: PatternKind[];
 }
 
 export function renderControls(
@@ -67,6 +71,25 @@ export function renderControls(
   refreshBtn.textContent = "↻ Refresh";
   refreshBtn.addEventListener("click", handlers.onRefresh);
   container.appendChild(refreshBtn);
+
+  const filterWrap = document.createElement("div");
+  filterWrap.className = "pattern-filter";
+  const filterTitle = document.createElement("span");
+  filterTitle.className = "filter-title";
+  filterTitle.textContent = "パターン:";
+  filterWrap.appendChild(filterTitle);
+  for (const kind of ALL_PATTERN_KINDS) {
+    const lbl = document.createElement("label");
+    lbl.className = "filter-chip";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = state.enabledPatterns.includes(kind);
+    cb.addEventListener("change", () => handlers.onPatternToggle(kind, cb.checked));
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(PATTERN_LABELS[kind]));
+    filterWrap.appendChild(lbl);
+  }
+  container.appendChild(filterWrap);
 }
 
 function makeSelect(
