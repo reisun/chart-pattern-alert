@@ -1,6 +1,6 @@
 import { ApiError, fetchOhlcv } from "./api/client";
 import { detectAll, defaultPatternConfig } from "./patterns";
-import type { Candle, DetectedPattern } from "./patterns/types";
+import type { Candle, DetectedPattern, PatternKind } from "./patterns/types";
 import { notifyPattern, requestPermission, getPermission } from "./services/notifier";
 import { startPolling, type PollingHandle } from "./services/polling";
 import { DEFAULT_STATE, addSeen, loadState, saveState, type AppState, type Interval, type Scale } from "./state/appState";
@@ -198,7 +198,19 @@ export class App {
           const t = new Date(p.markerTime * 1000).toLocaleString();
           const dirClass = p.direction === "bullish" ? "bull" : "bear";
           const arrow = p.direction === "bullish" ? "▲" : "▼";
-          const kind = p.kind === "double_bottom" ? "Double Bottom" : "Double Top";
+          const kindLabels: Record<PatternKind, string> = {
+            double_bottom: "Double Bottom",
+            double_top: "Double Top",
+            inverse_head_and_shoulders: "Inverse H&S",
+            head_and_shoulders: "H&S",
+            ascending_flag: "Ascending Flag",
+            descending_flag: "Descending Flag",
+            ascending_triangle: "Ascending Triangle",
+            descending_triangle: "Descending Triangle",
+            flip_up: "Flip Up",
+            flip_down: "Flip Down",
+          };
+          const kind = kindLabels[p.kind];
           const neck = p.neckline ? ` · neckline ${p.neckline.toFixed(2)}` : "";
           return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind}</span>${neck} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
         }).join("");
