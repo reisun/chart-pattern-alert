@@ -53,17 +53,14 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 
 機能拡張。優先度は上から推奨順。各項目は **単独で lead-task 1 本** に相当する粒度。
 
-### B1. 残 7〜8 パターン検出の実装
+### B1. 残 8 パターン検出の実装
 
-- **状態**: 設計書はすべて書き下ろし済。実装は MVP の 2 種のみ
-- **対象**:
-  - 逆三尊 / 三尊 — [`docs/patterns/inverse-head-and-shoulders.md`](./docs/patterns/inverse-head-and-shoulders.md), [`head-and-shoulders.md`](./docs/patterns/head-and-shoulders.md)
-  - 上昇 / 下降フラッグ — [`ascending-flag.md`](./docs/patterns/ascending-flag.md), [`descending-flag.md`](./docs/patterns/descending-flag.md)
-  - 上昇 / 下降トライアングル — [`ascending-triangle.md`](./docs/patterns/ascending-triangle.md), [`descending-triangle.md`](./docs/patterns/descending-triangle.md)
-  - 切り下げ / 切り上げレジサポ転換 — [`resistance-support-flip-up.md`](./docs/patterns/resistance-support-flip-up.md), [`resistance-support-flip-down.md`](./docs/patterns/resistance-support-flip-down.md)
-- **実装場所**: `web/src/patterns/` 配下（既存の `doubleBottom.ts` と同じ構成で追加 → `index.ts` の `detectAll` に統合）
-- **テスト**: 各パターン用の合成フィクスチャを `web/src/dev/fixtures.ts` に追加し `web/tests/*.spec.ts` で検証
-- **マーカー略号**: common.md に既定あり（`iH&S`, `H&S`, `A-Flag`, `D-Flag`, `A-Tri`, `D-Tri`, `Flip↑`, `Flip↓`）
+- **状態**: 完了（[#9](https://github.com/reisun/chart-pattern-alert/pull/9)）。全10パターンの検出・Feed表示・マーカー描画・テスト実装済
+- **実装内容**:
+  - 逆三尊 / 三尊、上昇 / 下降フラッグ、上昇 / 下降トライアングル、Flip Up / Flip Down の8パターンを追加
+  - 線形回帰ユーティリティ (`regression.ts`) を追加
+  - `renderFeed` を全10パターン表示対応に修正
+  - 合成フィクスチャ10種 + テスト34件（全 pass）
 
 ### B2. 上位足整合の簡易表示
 
@@ -88,6 +85,7 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **内容**: TwelveData（デフォルト）、Finnhub、Alpha Vantage、J-Quants の 4 データソースを追加実装。環境変数で切替可能
 - **動機**: yfinance のレートリミット問題を TwelveData で根本解決
 - **日本株対応**: J-Quants API（JPX 公式）を実装。`JQUANTS_API_KEY` 設定時、日本株シンボル（4-5桁数字）は自動で J-Quants にルーティング（`AutoRoutingDataSource`）。Free プランは日足のみ・12週遅れデータ（日付範囲を自動調整）
+- **J-Quants interval フォールバック**: J-Quants 未対応 interval（5m等）時は default source にフォールバック（[#10](https://github.com/reisun/chart-pattern-alert/pull/10)）
 
 ---
 
@@ -108,5 +106,7 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 | L2 | Backend API (FastAPI + yfinance) | [#2](https://github.com/reisun/chart-pattern-alert/pull/2) |
 | L3 | Frontend MVP + Pattern Detection | [#3](https://github.com/reisun/chart-pattern-alert/pull/3) |
 | L4 | Integration & Deploy (Actions + Pages) | [#4](https://github.com/reisun/chart-pattern-alert/pull/4) |
+| B1 | 残8パターン検出ロジック・テスト・Feed表示 | [#9](https://github.com/reisun/chart-pattern-alert/pull/9) |
+| fix | J-Quants interval フォールバック | [#10](https://github.com/reisun/chart-pattern-alert/pull/10) |
 
 公開 URL: https://reisun.github.io/chart-pattern-alert/
