@@ -7,10 +7,12 @@ import pytest
 
 from app.services.data_source import (
     AlphaVantageDataSource,
+    AutoRoutingDataSource,
     FinnhubDataSource,
     JQuantsDataSource,
     TwelveDataDataSource,
     YFinanceDataSource,
+    _is_japanese_stock,
     _normalize_jquants_code,
     create_data_source,
     DataSourceError,
@@ -644,3 +646,74 @@ def test_jquants_timezone_is_asia_tokyo(mock_get):
     ds = JQuantsDataSource(api_key="test_key")
     _, tz = ds.fetch_ohlcv("7203", "1d", "5d")
     assert tz == "Asia/Tokyo"
+
+
+# ---- _is_japanese_stock tests ----
+
+def test_is_japanese_stock_4digit():
+    assert _is_japanese_stock("7203") is True
+
+def test_is_japanese_stock_with_suffix():
+    assert _is_japanese_stock("7203.T") is True
+
+def test_is_japanese_stock_5digit():
+    assert _is_japanese_stock("72030") is True
+
+def test_is_japanese_stock_us_ticker():
+    assert _is_japanese_stock("AAPL") is False
+
+def test_is_japanese_stock_short_number():
+    assert _is_japanese_stock("123") is False
+
+def test_is_japanese_stock_6digit():
+    assert _is_japanese_stock("123456") is False
+
+
+# ---- AutoRoutingDataSource tests ----
+
+def test_auto_routing_dispatches_jp_to_jquants():
+    default = MagicMock()
+    jquants = MagicMock()
+    jquants.fetch_ohlcv.return_value = ([{"time": 1}], "Asia/Tokyo")
+    router = AutoRoutingDataSource(default=default, jquants=jquants)
+    candles, tz = router.fetch_ohlcv("7203", "1d", "5d")
+    jquants.fetch_ohlcv.assert_called_once_with("7203", "1d", "5d")
+    default.fetch_ohlcv.assert_not_called()
+    assert tz == "Asia/Tokyo"
+
+def test_auto_routing_dispatches_us_to_default():
+    default = MagicMock()
+    jquants = MagicMock()
+    default.fetch_ohlcv.return_value = ([{"time": 2}], "US/Eastern")
+    router = AutoRoutingDataSource(default=default, jquants=jquants)
+    candles, tz = router.fetch_ohlcv("AAPL", "5m", "5d")
+    default.fetch_ohlcv.assert_called_once_with("AAPL", "5m", "5d")
+    jquants.fetch_ohlcv.assert_not_called()
+    assert tz == "US/Eastern"
+
+def test_auto_routing_jp_with_suffix():
+    default = MagicMock()
+    jquants = MagicMock()
+    jquants.fetch_ohlcv.return_value = ([], "Asia/Tokyo")
+    router = AutoRoutingDataSource(default=default, jquants=jquants)
+    router.fetch_ohlcv("7203.T", "1d", "1mo")
+    jquants.fetch_ohlcv.assert_called_once()
+    default.fetch_ohlcv.assert_not_called()
+
+
+# ---- create_data_source with auto-routing ----
+
+@patch.dict("os.environ", {"JQUANTS_API_KEY": "test_key"}, clear=False)
+def test_create_data_source_wraps_with_auto_routing():
+    ds = create_data_source("twelvedata")
+    assert isinstance(ds, AutoRoutingDataSource)
+
+@patch.dict("os.environ", {"JQUANTS_API_KEY": ""}, clear=False)
+def test_create_data_source_no_routing_without_key():
+    ds = create_data_source("twelvedata")
+    assert isinstance(ds, TwelveDataDataSource)
+
+@patch.dict("os.environ", {"JQUANTS_API_KEY": "test_key"}, clear=False)
+def test_create_data_source_jquants_no_double_wrap():
+    ds = create_data_source("jquants")
+    assert isinstance(ds, JQuantsDataSource)

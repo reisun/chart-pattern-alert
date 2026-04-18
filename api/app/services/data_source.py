@@ -522,15 +522,17 @@ class JQuantsDataSource:
 
         code = _normalize_jquants_code(symbol)
 
+        delay_weeks = int(os.getenv("JQUANTS_DATA_DELAY_WEEKS", "12"))
         now = datetime.now(timezone.utc)
+        latest = now - timedelta(weeks=delay_weeks)
         delta = _RANGE_DELTA.get(range_)
         if delta is None and range_ == "max":
             from_date = "20000101"
         elif delta is not None:
-            from_date = (now - delta).strftime("%Y%m%d")
+            from_date = (latest - delta).strftime("%Y%m%d")
         else:
             raise DataSourceError(f"unsupported range for J-Quants: {range_!r}")
-        to_date = now.strftime("%Y%m%d")
+        to_date = latest.strftime("%Y%m%d")
 
         headers = {"x-api-key": self._api_key}
         all_rows: list[dict] = []
@@ -549,14 +551,20 @@ class JQuantsDataSource:
                 resp = httpx.get(
                     self._BASE_URL, params=params, headers=headers, timeout=30.0,
                 )
-                resp.raise_for_status()
             except httpx.HTTPError as exc:
                 logger.warning("J-Quants fetch failed: symbol=%s err=%s", symbol, exc)
                 raise DataSourceError(str(exc)) from exc
 
+            if resp.status_code >= 400:
+                try:
+                    data = resp.json()
+                    msg = data.get("message", resp.text)
+                except Exception:
+                    msg = resp.text
+                raise DataSourceError(f"J-Quants error ({resp.status_code}): {msg}")
+
             data = resp.json()
 
-            # Error response: {"message": "..."}
             if "message" in data and "data" not in data:
                 msg = data["message"]
                 raise DataSourceError(f"J-Quants error: {msg}")
@@ -601,8 +609,28 @@ class JQuantsDataSource:
         return candles, "Asia/Tokyo"
 
 
-def create_data_source(name: str) -> DataSource:
-    """Factory: create a DataSource by name."""
+def _is_japanese_stock(symbol: str) -> bool:
+    """Check if symbol looks like a Japanese stock code (e.g. 7203, 7203.T, 72030)."""
+    code = symbol.split(".")[0]
+    return code.isdigit() and 4 <= len(code) <= 5
+
+
+class AutoRoutingDataSource:
+    """Routes Japanese stock symbols to J-Quants, others to the default source."""
+
+    def __init__(self, default: DataSource, jquants: JQuantsDataSource) -> None:
+        self._default = default
+        self._jquants = jquants
+
+    def fetch_ohlcv(
+        self, symbol: str, interval: str, range_: str
+    ) -> tuple[list[Candle], str | None]:
+        if _is_japanese_stock(symbol):
+            return self._jquants.fetch_ohlcv(symbol, interval, range_)
+        return self._default.fetch_ohlcv(symbol, interval, range_)
+
+
+def _create_single(name: str) -> DataSource:
     if name == "twelvedata":
         return TwelveDataDataSource()
     if name == "finnhub":
@@ -614,3 +642,16 @@ def create_data_source(name: str) -> DataSource:
     if name == "jquants":
         return JQuantsDataSource()
     raise ValueError(f"unknown data source: {name!r}")
+
+
+def create_data_source(name: str) -> DataSource:
+    """Factory: create a DataSource by name.
+
+    If a JQUANTS_API_KEY is set and the primary source is not jquants,
+    wraps with AutoRoutingDataSource for automatic JP stock routing.
+    """
+    primary = _create_single(name)
+    if name != "jquants" and os.getenv("JQUANTS_API_KEY", ""):
+        jq = JQuantsDataSource()
+        return AutoRoutingDataSource(default=primary, jquants=jq)
+    return primary
