@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from app.services.data_source import (
-    StooqDataSource,
+    AlphaVantageDataSource,
     YFinanceDataSource,
     create_data_source,
     DataSourceError,
@@ -21,9 +21,9 @@ def test_create_data_source_yfinance():
     assert isinstance(ds, YFinanceDataSource)
 
 
-def test_create_data_source_stooq():
-    ds = create_data_source("stooq")
-    assert isinstance(ds, StooqDataSource)
+def test_create_data_source_alphavantage():
+    ds = create_data_source("alphavantage")
+    assert isinstance(ds, AlphaVantageDataSource)
 
 
 def test_create_data_source_unknown():
@@ -31,22 +31,26 @@ def test_create_data_source_unknown():
         create_data_source("blah")
 
 
-# ---- StooqDataSource CSV parsing tests ----
+# ---- AlphaVantageDataSource CSV parsing tests ----
 
 _SAMPLE_CSV = """\
-Date,Open,High,Low,Close,Volume
+timestamp,open,high,low,close,volume
 2024-04-15,170.0,172.5,169.0,171.5,50000000
 2024-04-16,171.5,173.0,170.5,172.0,48000000
 2024-04-17,172.0,174.0,171.0,173.5,52000000
 """
 
 _SAMPLE_CSV_NO_VOLUME = """\
-Date,Open,High,Low,Close
+timestamp,open,high,low,close
 2024-04-15,170.0,172.5,169.0,171.5
 2024-04-16,171.5,173.0,170.5,172.0
 """
 
-_SAMPLE_CSV_EMPTY = "No data"
+_SAMPLE_CSV_INTRADAY = """\
+timestamp,open,high,low,close,volume
+2024-04-15 09:30:00,170.0,172.5,169.0,171.5,50000000
+2024-04-15 09:35:00,171.5,173.0,170.5,172.0,48000000
+"""
 
 
 class _FakeResponse:
@@ -63,9 +67,9 @@ class _FakeResponse:
 
 
 @patch("app.services.data_source.httpx.get")
-def test_stooq_parses_csv(mock_get):
+def test_alphavantage_parses_csv(mock_get):
     mock_get.return_value = _FakeResponse(_SAMPLE_CSV)
-    ds = StooqDataSource()
+    ds = AlphaVantageDataSource(api_key="test_key")
     candles, tz = ds.fetch_ohlcv("AAPL", "1d", "5d")
     assert tz is None
     assert len(candles) == 3
@@ -77,73 +81,133 @@ def test_stooq_parses_csv(mock_get):
 
 
 @patch("app.services.data_source.httpx.get")
-def test_stooq_missing_volume_defaults_zero(mock_get):
+def test_alphavantage_missing_volume_defaults_zero(mock_get):
     mock_get.return_value = _FakeResponse(_SAMPLE_CSV_NO_VOLUME)
-    ds = StooqDataSource()
+    ds = AlphaVantageDataSource(api_key="test_key")
     candles, _ = ds.fetch_ohlcv("AAPL", "1d", "5d")
     assert len(candles) == 2
     assert candles[0]["volume"] == 0
 
 
 @patch("app.services.data_source.httpx.get")
-def test_stooq_no_data_raises_not_found(mock_get):
-    mock_get.return_value = _FakeResponse(_SAMPLE_CSV_EMPTY)
-    ds = StooqDataSource()
-    with pytest.raises(NotFoundError):
-        ds.fetch_ohlcv("ZZZZ", "1d", "5d")
-
-
-@patch("app.services.data_source.httpx.get")
-def test_stooq_empty_response_raises_not_found(mock_get):
+def test_alphavantage_empty_response_raises_not_found(mock_get):
     mock_get.return_value = _FakeResponse("")
-    ds = StooqDataSource()
+    ds = AlphaVantageDataSource(api_key="test_key")
     with pytest.raises(NotFoundError):
         ds.fetch_ohlcv("ZZZZ", "1d", "5d")
 
 
 @patch("app.services.data_source.httpx.get")
-def test_stooq_http_error_raises_datasource_error(mock_get):
+def test_alphavantage_http_error_raises_datasource_error(mock_get):
     import httpx as _httpx
     mock_get.side_effect = _httpx.ConnectError("connection refused")
-    ds = StooqDataSource()
+    ds = AlphaVantageDataSource(api_key="test_key")
     with pytest.raises(DataSourceError):
         ds.fetch_ohlcv("AAPL", "1d", "5d")
 
 
-def test_stooq_unsupported_interval():
-    ds = StooqDataSource()
+def test_alphavantage_unsupported_interval():
+    ds = AlphaVantageDataSource(api_key="test_key")
     with pytest.raises(DataSourceError, match="unsupported interval"):
         ds.fetch_ohlcv("AAPL", "2m", "5d")
 
 
 @patch("app.services.data_source.httpx.get")
-def test_stooq_url_params(mock_get):
-    """Verify correct URL params are sent to Stooq."""
+def test_alphavantage_url_params_daily(mock_get):
+    """Verify correct URL params are sent for daily interval."""
     mock_get.return_value = _FakeResponse(_SAMPLE_CSV)
-    ds = StooqDataSource()
-    ds.fetch_ohlcv("MSFT", "1h", "1mo")
+    ds = AlphaVantageDataSource(api_key="test_key")
+    ds.fetch_ohlcv("MSFT", "1d", "1mo")
     call_kwargs = mock_get.call_args
     params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
-    assert params["s"] == "MSFT.US"
-    assert params["i"] == "60"
+    assert params["symbol"] == "MSFT"
+    assert params["function"] == "TIME_SERIES_DAILY"
+    assert params["datatype"] == "csv"
+    assert params["outputsize"] == "compact"
+    assert params["apikey"] == "test_key"
+    assert "interval" not in params
 
 
 @patch("app.services.data_source.httpx.get")
-def test_stooq_api_key_error(mock_get):
-    """Stooq returns a plaintext message when API key is missing."""
-    body = "Get your apikey:\n1. Open https://stooq.com/..."
-    mock_get.return_value = _FakeResponse(body)
-    ds = StooqDataSource()
-    with pytest.raises(DataSourceError, match="API key"):
+def test_alphavantage_url_params_intraday(mock_get):
+    """Verify correct URL params for intraday interval."""
+    mock_get.return_value = _FakeResponse(_SAMPLE_CSV_INTRADAY)
+    ds = AlphaVantageDataSource(api_key="test_key")
+    ds.fetch_ohlcv("AAPL", "5m", "1d")
+    call_kwargs = mock_get.call_args
+    params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+    assert params["function"] == "TIME_SERIES_INTRADAY"
+    assert params["interval"] == "5min"
+    assert params["outputsize"] == "compact"
+
+
+@patch("app.services.data_source.httpx.get")
+def test_alphavantage_url_params_max_range(mock_get):
+    """range=max should use outputsize=full."""
+    mock_get.return_value = _FakeResponse(_SAMPLE_CSV)
+    ds = AlphaVantageDataSource(api_key="test_key")
+    ds.fetch_ohlcv("AAPL", "1d", "max")
+    call_kwargs = mock_get.call_args
+    params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+    assert params["outputsize"] == "full"
+
+
+@patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": ""}, clear=False)
+def test_alphavantage_api_key_not_set():
+    """API key not set raises DataSourceError."""
+    ds = AlphaVantageDataSource(api_key="")
+    with pytest.raises(DataSourceError, match="API key is not set"):
         ds.fetch_ohlcv("AAPL", "1d", "5d")
 
 
 @patch("app.services.data_source.httpx.get")
-def test_stooq_sends_api_key_when_set(mock_get):
+def test_alphavantage_sends_api_key(mock_get):
     """When api_key is provided, it's included in the request params."""
     mock_get.return_value = _FakeResponse(_SAMPLE_CSV)
-    ds = StooqDataSource(api_key="test_key_123")
+    ds = AlphaVantageDataSource(api_key="my_secret_key")
     ds.fetch_ohlcv("AAPL", "1d", "5d")
     call_kwargs = mock_get.call_args
     params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
-    assert params["apikey"] == "test_key_123"
+    assert params["apikey"] == "my_secret_key"
+
+
+@patch("app.services.data_source.httpx.get")
+def test_alphavantage_error_message_response(mock_get):
+    """Alpha Vantage JSON error response is detected."""
+    body = '{"Error Message": "Invalid API call."}'
+    mock_get.return_value = _FakeResponse(body)
+    ds = AlphaVantageDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError, match="Alpha Vantage error"):
+        ds.fetch_ohlcv("AAPL", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_alphavantage_rate_limit_note_response(mock_get):
+    """Alpha Vantage rate limit Note response is detected."""
+    body = '{"Note": "Thank you for using Alpha Vantage! Our standard API rate limit is 25 requests per day."}'
+    mock_get.return_value = _FakeResponse(body)
+    ds = AlphaVantageDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError, match="rate limit"):
+        ds.fetch_ohlcv("AAPL", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_alphavantage_weekly_function(mock_get):
+    """Weekly interval uses TIME_SERIES_WEEKLY."""
+    mock_get.return_value = _FakeResponse(_SAMPLE_CSV)
+    ds = AlphaVantageDataSource(api_key="test_key")
+    ds.fetch_ohlcv("AAPL", "1wk", "1y")
+    call_kwargs = mock_get.call_args
+    params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+    assert params["function"] == "TIME_SERIES_WEEKLY"
+
+
+@patch("app.services.data_source.httpx.get")
+def test_alphavantage_monthly_function(mock_get):
+    """Monthly interval uses TIME_SERIES_MONTHLY."""
+    mock_get.return_value = _FakeResponse(_SAMPLE_CSV)
+    ds = AlphaVantageDataSource(api_key="test_key")
+    ds.fetch_ohlcv("AAPL", "1mo", "1y")
+    call_kwargs = mock_get.call_args
+    params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+    assert params["function"] == "TIME_SERIES_MONTHLY"

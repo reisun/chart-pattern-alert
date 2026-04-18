@@ -4,7 +4,6 @@ import io
 import logging
 import math
 import os
-from datetime import datetime, timedelta, timezone
 from typing import Protocol, TypedDict
 
 import httpx
@@ -97,90 +96,83 @@ def _to_utc_epoch(ts: pd.Timestamp) -> int:
     return int(ts.timestamp())
 
 
-# ---- Stooq interval / range mappings ----
+# ---- Alpha Vantage interval mappings ----
 
-_STOOQ_INTERVAL_MAP: dict[str, str] = {
-    "1m": "1",
-    "5m": "5",
-    "15m": "15",
-    "30m": "30",
-    "1h": "60",
-    "1d": "d",
-    "1wk": "w",
-    "1mo": "m",
+_AV_INTRADAY_INTERVAL_MAP: dict[str, str] = {
+    "1m": "1min",
+    "5m": "5min",
+    "15m": "15min",
+    "30m": "30min",
+    "1h": "60min",
 }
 
-_RANGE_DELTA: dict[str, timedelta | None] = {
-    "1d": timedelta(days=1),
-    "5d": timedelta(days=5),
-    "1mo": timedelta(days=31),
-    "3mo": timedelta(days=93),
-    "6mo": timedelta(days=186),
-    "1y": timedelta(days=366),
-    "2y": timedelta(days=732),
-    "5y": timedelta(days=1830),
-    "max": None,  # special-cased
+_AV_NON_INTRADAY_FUNCTION: dict[str, str] = {
+    "1d": "TIME_SERIES_DAILY",
+    "1wk": "TIME_SERIES_WEEKLY",
+    "1mo": "TIME_SERIES_MONTHLY",
 }
 
 
-class StooqDataSource:
-    """Stooq CSV-based implementation.
+class AlphaVantageDataSource:
+    """Alpha Vantage CSV-based implementation.
 
-    URL pattern:
-      https://stooq.com/q/d/l/?s={symbol}.US&d1={YYYYMMDD}&d2={YYYYMMDD}&i={interval}
-
-    Requires STOOQ_API_KEY environment variable if Stooq enforces API keys.
+    Uses the free-tier CSV endpoint (datatype=csv).
+    Requires ALPHA_VANTAGE_API_KEY environment variable.
     """
 
-    _BASE_URL = "https://stooq.com/q/d/l/"
+    _BASE_URL = "https://www.alphavantage.co/query"
 
     def __init__(self, api_key: str | None = None) -> None:
-        self._api_key = api_key or os.getenv("STOOQ_API_KEY", "")
+        self._api_key = api_key or os.getenv("ALPHA_VANTAGE_API_KEY", "")
 
     def fetch_ohlcv(
         self, symbol: str, interval: str, range_: str
     ) -> tuple[list[Candle], str | None]:
-        stooq_interval = _STOOQ_INTERVAL_MAP.get(interval)
-        if stooq_interval is None:
-            raise DataSourceError(f"unsupported interval for Stooq: {interval!r}")
+        if not self._api_key:
+            raise DataSourceError(
+                "Alpha Vantage API key is not set. "
+                "Set ALPHA_VANTAGE_API_KEY environment variable."
+            )
 
-        today = datetime.now(timezone.utc).date()
-        delta = _RANGE_DELTA.get(range_)
-        if delta is None and range_ == "max":
-            start_date = "19000101"
-        elif delta is not None:
-            start_date = (today - delta).strftime("%Y%m%d")
-        else:
-            raise DataSourceError(f"unsupported range for Stooq: {range_!r}")
-        end_date = today.strftime("%Y%m%d")
+        intraday_interval = _AV_INTRADAY_INTERVAL_MAP.get(interval)
+        non_intraday_func = _AV_NON_INTRADAY_FUNCTION.get(interval)
 
-        stooq_symbol = f"{symbol}.US"
+        if intraday_interval is None and non_intraday_func is None:
+            raise DataSourceError(f"unsupported interval for Alpha Vantage: {interval!r}")
+
+        outputsize = "full" if range_ == "max" else "compact"
+
         params: dict[str, str] = {
-            "s": stooq_symbol,
-            "d1": start_date,
-            "d2": end_date,
-            "i": stooq_interval,
+            "symbol": symbol,
+            "apikey": self._api_key,
+            "datatype": "csv",
         }
-        if self._api_key:
-            params["apikey"] = self._api_key
+
+        if intraday_interval is not None:
+            params["function"] = "TIME_SERIES_INTRADAY"
+            params["interval"] = intraday_interval
+            params["outputsize"] = outputsize
+        else:
+            assert non_intraday_func is not None
+            params["function"] = non_intraday_func
+            params["outputsize"] = outputsize
 
         try:
             resp = httpx.get(self._BASE_URL, params=params, timeout=30.0)
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            logger.warning("Stooq fetch failed: symbol=%s err=%s", symbol, exc)
+            logger.warning("Alpha Vantage fetch failed: symbol=%s err=%s", symbol, exc)
             raise DataSourceError(str(exc)) from exc
 
         text = resp.text.strip()
-        if not text or "No data" in text:
+
+        # Alpha Vantage returns JSON error messages even when datatype=csv
+        if text.startswith("{"):
+            self._check_json_error(text)
+
+        if not text:
             raise NotFoundError(
                 f"no data for symbol={symbol!r} interval={interval!r} range={range_!r}"
-            )
-
-        # Stooq returns a plaintext message when API key is missing/invalid
-        if "apikey" in text.lower() or "captcha" in text.lower():
-            raise DataSourceError(
-                "Stooq requires a valid API key. Set STOOQ_API_KEY environment variable."
             )
 
         try:
@@ -193,10 +185,10 @@ class StooqDataSource:
                 f"no data for symbol={symbol!r} interval={interval!r} range={range_!r}"
             )
 
-        # Normalize column names (Stooq may return Title-cased columns)
+        # Normalize column names to title case
         df.columns = [c.strip().title() for c in df.columns]
 
-        required = {"Date", "Open", "High", "Low", "Close"}
+        required = {"Timestamp", "Open", "High", "Low", "Close"}
         if not required.issubset(set(df.columns)):
             raise DataSourceError(
                 f"unexpected CSV columns: {list(df.columns)}"
@@ -208,7 +200,7 @@ class StooqDataSource:
 
         candles: list[Candle] = []
         for _, row in df.iterrows():
-            ts = pd.Timestamp(str(row["Date"]))
+            ts = pd.Timestamp(str(row["Timestamp"]))
             utc_ts = _to_utc_epoch(ts)
             vol_raw = row.get("Volume", 0)
             volume = 0 if (
@@ -228,16 +220,31 @@ class StooqDataSource:
 
         candles.sort(key=lambda c: c["time"])
         logger.info(
-            "stooq ok: symbol=%s interval=%s range=%s rows=%d",
+            "alphavantage ok: symbol=%s interval=%s range=%s rows=%d",
             symbol, interval, range_, len(candles),
         )
-        return candles, None  # Stooq returns UTC, no tz info
+        return candles, None  # Alpha Vantage CSV timestamps are exchange-local, no tz info
+
+    def _check_json_error(self, text: str) -> None:
+        """Detect JSON error responses from Alpha Vantage."""
+        import json
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            return  # Not JSON, let CSV parser handle it
+
+        if "Error Message" in data:
+            raise DataSourceError(f"Alpha Vantage error: {data['Error Message']}")
+        if "Note" in data:
+            raise DataSourceError(f"Alpha Vantage rate limit: {data['Note']}")
+        if "Information" in data:
+            raise DataSourceError(f"Alpha Vantage rate limit: {data['Information']}")
 
 
 def create_data_source(name: str) -> DataSource:
     """Factory: create a DataSource by name."""
-    if name == "stooq":
-        return StooqDataSource()
+    if name == "alphavantage":
+        return AlphaVantageDataSource()
     if name == "yfinance":
         return YFinanceDataSource()
     raise ValueError(f"unknown data source: {name!r}")
