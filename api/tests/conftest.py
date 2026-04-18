@@ -40,6 +40,7 @@ def fake_ds_factory():
         ohlcv_routes.set_data_source(ds)
         return ds
     yield _factory
-    # restore real data source after test
-    from app.services.data_source import YFinanceDataSource
-    ohlcv_routes.set_data_source(YFinanceDataSource())
+    # restore data source from config after test
+    from app.services.data_source import create_data_source
+    from app.config import load_settings
+    ohlcv_routes.set_data_source(create_data_source(load_settings().data_source))

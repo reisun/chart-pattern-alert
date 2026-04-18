@@ -12,7 +12,6 @@ from app.services.data_source import (
     DataSource,
     DataSourceError,
     NotFoundError,
-    YFinanceDataSource,
 )
 
 router = APIRouter()
@@ -51,7 +50,7 @@ RANGE_DAYS_APPROX: Final[dict[str, int]] = {
 }
 
 
-_data_source: DataSource = YFinanceDataSource()
+_data_source: DataSource | None = None
 _cache: TTLCache | None = None
 _cached_ttl: int | None = None
 
@@ -133,6 +132,9 @@ def get_ohlcv(
     cached = cache.get(key)
     if cached is not None:
         return _build_response(symbol_norm, interval, range, cached)
+
+    if _data_source is None:
+        raise _error(500, "server_error", "data source not configured")
 
     try:
         candles, tz = _data_source.fetch_ohlcv(symbol_norm, interval, range)
