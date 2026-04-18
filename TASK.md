@@ -82,12 +82,12 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **状態**: データ構造は複数銘柄対応済。UI は最小限
 - **内容**: 通知履歴画面、銘柄別ステータス一覧、タブドラッグ並べ替え、未読バッジ等
 
-### B5. データソース切替（TwelveData / yfinance / Finnhub / Alpha Vantage）
+### B5. データソース切替（TwelveData / yfinance / Finnhub / Alpha Vantage / J-Quants）
 
-- **状態**: 完了。`DATA_SOURCE` 環境変数で twelvedata / yfinance / finnhub / alphavantage を切替可能。デフォルトは TwelveData（無料枠 800req/日、米国株の日足・分足対応）。キャッシュ TTL を 300秒に延長
-- **内容**: TwelveData（デフォルト）、Finnhub、Alpha Vantage の 3 データソースを追加実装。環境変数で切替可能
+- **状態**: 完了。`DATA_SOURCE` 環境変数で twelvedata / yfinance / finnhub / alphavantage / jquants を切替可能。デフォルトは TwelveData（無料枠 800req/日、米国株の日足・分足対応）。キャッシュ TTL を 300秒に延長
+- **内容**: TwelveData（デフォルト）、Finnhub、Alpha Vantage、J-Quants の 4 データソースを追加実装。環境変数で切替可能
 - **動機**: yfinance のレートリミット問題を TwelveData で根本解決
-- **備考**: 日本株は TwelveData Pro プラン（有料）または J-Quants API が必要。将来課題として保留
+- **日本株対応**: J-Quants API（JPX 公式）を実装。`JQUANTS_API_KEY` 設定時、日本株シンボル（4-5桁数字）は自動で J-Quants にルーティング（`AutoRoutingDataSource`）。Free プランは日足のみ・12週遅れデータ（日付範囲を自動調整）
 
 ---
 
