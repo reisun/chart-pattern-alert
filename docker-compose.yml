@@ -14,6 +14,7 @@ services:
       - TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY:-}
       - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - JQUANTS_API_KEY=${JQUANTS_API_KEY:-}
     ports:
       # 開発用にホスト公開。
       # 本番では上流プロキシが同一ネットワーク内から参照するため、

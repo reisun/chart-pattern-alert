@@ -8,8 +8,10 @@ import pytest
 from app.services.data_source import (
     AlphaVantageDataSource,
     FinnhubDataSource,
+    JQuantsDataSource,
     TwelveDataDataSource,
     YFinanceDataSource,
+    _normalize_jquants_code,
     create_data_source,
     DataSourceError,
     NotFoundError,
@@ -484,3 +486,161 @@ def test_twelvedata_timezone_from_meta(mock_get):
     ds = TwelveDataDataSource(api_key="test_key")
     _, tz = ds.fetch_ohlcv("AAPL", "1d", "5d")
     assert tz == "America/New_York"
+
+
+# ---- JQuantsDataSource tests ----
+
+_JQUANTS_OK_JSON = json.dumps({
+    "data": [
+        {
+            "Date": "2026-01-20",
+            "Code": "72030",
+            "O": 3590.0, "H": 3594.0, "L": 3528.0, "C": 3541.0,
+            "Vo": 20386000.0, "Va": 72349917000.0,
+            "AdjFactor": 1.0,
+            "AdjO": 3590.0, "AdjH": 3594.0, "AdjL": 3528.0, "AdjC": 3541.0,
+            "AdjVo": 20386000.0,
+        },
+        {
+            "Date": "2026-01-21",
+            "Code": "72030",
+            "O": 3550.0, "H": 3580.0, "L": 3540.0, "C": 3570.0,
+            "Vo": 18000000.0, "Va": 64000000000.0,
+            "AdjFactor": 1.0,
+            "AdjO": 3550.0, "AdjH": 3580.0, "AdjL": 3540.0, "AdjC": 3570.0,
+            "AdjVo": 18000000.0,
+        },
+    ],
+    "pagination_key": None,
+})
+
+_JQUANTS_EMPTY_JSON = json.dumps({"data": [], "pagination_key": None})
+
+_JQUANTS_ERROR_JSON = json.dumps({"message": "Your subscription covers the following dates: ..."})
+
+_JQUANTS_PAGE1_JSON = json.dumps({
+    "data": [
+        {
+            "Date": "2026-01-20", "Code": "72030",
+            "O": 3590.0, "H": 3594.0, "L": 3528.0, "C": 3541.0,
+            "Vo": 20386000.0, "Va": 72349917000.0, "AdjFactor": 1.0,
+            "AdjO": 3590.0, "AdjH": 3594.0, "AdjL": 3528.0, "AdjC": 3541.0,
+            "AdjVo": 20386000.0,
+        },
+    ],
+    "pagination_key": "some_key_123",
+})
+
+_JQUANTS_PAGE2_JSON = json.dumps({
+    "data": [
+        {
+            "Date": "2026-01-21", "Code": "72030",
+            "O": 3550.0, "H": 3580.0, "L": 3540.0, "C": 3570.0,
+            "Vo": 18000000.0, "Va": 64000000000.0, "AdjFactor": 1.0,
+            "AdjO": 3550.0, "AdjH": 3580.0, "AdjL": 3540.0, "AdjC": 3570.0,
+            "AdjVo": 18000000.0,
+        },
+    ],
+    "pagination_key": None,
+})
+
+
+@patch("app.services.data_source.httpx.get")
+def test_jquants_parses_json(mock_get):
+    """J-Quants JSON response is parsed using adjusted OHLCV values."""
+    mock_get.return_value = _FakeJsonResponse(_JQUANTS_OK_JSON)
+    ds = JQuantsDataSource(api_key="test_key")
+    candles, tz = ds.fetch_ohlcv("7203", "1d", "5d")
+    assert tz == "Asia/Tokyo"
+    assert len(candles) == 2
+    assert candles[0]["open"] == 3590.0
+    assert candles[0]["high"] == 3594.0
+    assert candles[0]["low"] == 3528.0
+    assert candles[0]["close"] == 3541.0
+    assert candles[0]["volume"] == 20386000
+    assert candles[1]["close"] == 3570.0
+    # sorted ascending by time
+    assert candles[0]["time"] <= candles[1]["time"]
+
+
+def test_jquants_normalize_code_4digit():
+    assert _normalize_jquants_code("7203") == "72030"
+
+
+def test_jquants_normalize_code_with_suffix():
+    assert _normalize_jquants_code("7203.T") == "72030"
+
+
+def test_jquants_normalize_code_5digit():
+    assert _normalize_jquants_code("72030") == "72030"
+
+
+def test_jquants_unsupported_interval():
+    """Intraday intervals raise DataSourceError."""
+    ds = JQuantsDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError, match="unsupported interval"):
+        ds.fetch_ohlcv("7203", "5m", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_jquants_error_message_raises_datasource_error(mock_get):
+    """API error with message field raises DataSourceError."""
+    mock_get.return_value = _FakeJsonResponse(_JQUANTS_ERROR_JSON)
+    ds = JQuantsDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError, match="J-Quants error"):
+        ds.fetch_ohlcv("7203", "1d", "3mo")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_jquants_http_error_raises_datasource_error(mock_get):
+    import httpx as _httpx
+    mock_get.side_effect = _httpx.ConnectError("connection refused")
+    ds = JQuantsDataSource(api_key="test_key")
+    with pytest.raises(DataSourceError):
+        ds.fetch_ohlcv("7203", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_jquants_empty_data_raises_not_found(mock_get):
+    mock_get.return_value = _FakeJsonResponse(_JQUANTS_EMPTY_JSON)
+    ds = JQuantsDataSource(api_key="test_key")
+    with pytest.raises(NotFoundError):
+        ds.fetch_ohlcv("0000", "1d", "5d")
+
+
+@patch.dict("os.environ", {"JQUANTS_API_KEY": ""}, clear=False)
+def test_jquants_api_key_not_set():
+    """API key not set raises DataSourceError."""
+    ds = JQuantsDataSource(api_key="")
+    with pytest.raises(DataSourceError, match="API key is not set"):
+        ds.fetch_ohlcv("7203", "1d", "5d")
+
+
+@patch("app.services.data_source.httpx.get")
+def test_jquants_pagination(mock_get):
+    """When pagination_key is present, fetches all pages."""
+    mock_get.side_effect = [
+        _FakeJsonResponse(_JQUANTS_PAGE1_JSON),
+        _FakeJsonResponse(_JQUANTS_PAGE2_JSON),
+    ]
+    ds = JQuantsDataSource(api_key="test_key")
+    candles, tz = ds.fetch_ohlcv("7203", "1d", "1mo")
+    assert len(candles) == 2
+    assert mock_get.call_count == 2
+    # Second call should include pagination_key
+    second_call_params = mock_get.call_args_list[1].kwargs.get("params") or mock_get.call_args_list[1][1].get("params")
+    assert second_call_params["pagination_key"] == "some_key_123"
+
+
+def test_create_data_source_jquants():
+    ds = create_data_source("jquants")
+    assert isinstance(ds, JQuantsDataSource)
+
+
+@patch("app.services.data_source.httpx.get")
+def test_jquants_timezone_is_asia_tokyo(mock_get):
+    """Timezone is always Asia/Tokyo for J-Quants."""
+    mock_get.return_value = _FakeJsonResponse(_JQUANTS_OK_JSON)
+    ds = JQuantsDataSource(api_key="test_key")
+    _, tz = ds.fetch_ohlcv("7203", "1d", "5d")
+    assert tz == "Asia/Tokyo"

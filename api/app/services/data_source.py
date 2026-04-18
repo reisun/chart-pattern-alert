@@ -473,6 +473,134 @@ class TwelveDataDataSource:
         return candles, tz_name
 
 
+
+# ---- J-Quants mappings ----
+
+_JQUANTS_SUPPORTED_INTERVALS = {"1d", "1wk", "1mo"}
+
+
+def _normalize_jquants_code(symbol: str) -> str:
+    """Convert user-facing symbol to J-Quants 5-digit code.
+
+    Examples:
+        "7203.T" → "72030"
+        "7203"   → "72030"
+        "72030"  → "72030"
+    """
+    code = symbol.rstrip(".T")  # "7203.T" → "7203"
+    if len(code) == 4 and code.isdigit():
+        code = code + "0"  # "7203" → "72030"
+    return code
+
+
+class JQuantsDataSource:
+    """J-Quants API v2 implementation (Japanese stocks, daily bars).
+
+    Uses JSON endpoint: GET /v2/equities/bars/daily
+    Requires JQUANTS_API_KEY environment variable.
+    """
+
+    _BASE_URL = "https://api.jquants.com/v2/equities/bars/daily"
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key or os.getenv("JQUANTS_API_KEY", "")
+
+    def fetch_ohlcv(
+        self, symbol: str, interval: str, range_: str
+    ) -> tuple[list[Candle], str | None]:
+        if not self._api_key:
+            raise DataSourceError(
+                "J-Quants API key is not set. "
+                "Set JQUANTS_API_KEY environment variable."
+            )
+
+        if interval not in _JQUANTS_SUPPORTED_INTERVALS:
+            raise DataSourceError(
+                f"unsupported interval for J-Quants: {interval!r} "
+                f"(supported: {sorted(_JQUANTS_SUPPORTED_INTERVALS)})"
+            )
+
+        code = _normalize_jquants_code(symbol)
+
+        now = datetime.now(timezone.utc)
+        delta = _RANGE_DELTA.get(range_)
+        if delta is None and range_ == "max":
+            from_date = "20000101"
+        elif delta is not None:
+            from_date = (now - delta).strftime("%Y%m%d")
+        else:
+            raise DataSourceError(f"unsupported range for J-Quants: {range_!r}")
+        to_date = now.strftime("%Y%m%d")
+
+        headers = {"x-api-key": self._api_key}
+        all_rows: list[dict] = []
+        pagination_key: str | None = None
+
+        while True:
+            params: dict[str, str] = {
+                "code": code,
+                "from": from_date,
+                "to": to_date,
+            }
+            if pagination_key is not None:
+                params["pagination_key"] = pagination_key
+
+            try:
+                resp = httpx.get(
+                    self._BASE_URL, params=params, headers=headers, timeout=30.0,
+                )
+                resp.raise_for_status()
+            except httpx.HTTPError as exc:
+                logger.warning("J-Quants fetch failed: symbol=%s err=%s", symbol, exc)
+                raise DataSourceError(str(exc)) from exc
+
+            data = resp.json()
+
+            # Error response: {"message": "..."}
+            if "message" in data and "data" not in data:
+                msg = data["message"]
+                raise DataSourceError(f"J-Quants error: {msg}")
+
+            rows = data.get("data", [])
+            all_rows.extend(rows)
+
+            pagination_key = data.get("pagination_key")
+            if not pagination_key:
+                break
+
+        if not all_rows:
+            raise NotFoundError(
+                f"no data for symbol={symbol!r} interval={interval!r} range={range_!r}"
+            )
+
+        candles: list[Candle] = []
+        for row in all_rows:
+            ts = pd.Timestamp(row["Date"])
+            utc_ts = _to_utc_epoch(ts)
+            vol_raw = row.get("AdjVo", row.get("Vo", 0))
+            volume = 0 if (
+                vol_raw is None
+                or (isinstance(vol_raw, float) and math.isnan(vol_raw))
+            ) else int(vol_raw)
+            candles.append(
+                Candle(
+                    time=utc_ts,
+                    open=float(row["AdjO"]),
+                    high=float(row["AdjH"]),
+                    low=float(row["AdjL"]),
+                    close=float(row["AdjC"]),
+                    volume=volume,
+                )
+            )
+
+        candles.sort(key=lambda c: c["time"])
+        logger.info(
+            "jquants ok: symbol=%s interval=%s range=%s rows=%d",
+            symbol, interval, range_, len(candles),
+        )
+        return candles, "Asia/Tokyo"
+
+
 def create_data_source(name: str) -> DataSource:
     """Factory: create a DataSource by name."""
     if name == "twelvedata":
@@ -483,4 +611,6 @@ def create_data_source(name: str) -> DataSource:
         return AlphaVantageDataSource()
     if name == "yfinance":
         return YFinanceDataSource()
+    if name == "jquants":
+        return JQuantsDataSource()
     raise ValueError(f"unknown data source: {name!r}")
