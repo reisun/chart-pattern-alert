@@ -15,6 +15,7 @@ export function detectDoubleBottom(
   candles: Candle[],
   pivots: Pivot[],
   cfg: PatternConfig,
+  atr?: number,
 ): DetectedPattern[] {
   if (candles.length === 0 || pivots.length < 3) return [];
 
@@ -34,6 +35,12 @@ export function detectDoubleBottom(
 
     const liftPct = (b.price - Math.max(a.price, c.price)) / Math.max(a.price, c.price);
     if (liftPct < cfg.minSwingPct) continue;
+
+    // ATR-based depth check: middle peak must be sufficiently above the bottoms
+    if (atr != null && atr > 0) {
+      const depth = b.price - Math.max(a.price, c.price);
+      if (depth < atr * cfg.doubleMinDepthATR) continue;
+    }
 
     const neckline = b.price;
     const last = candles[candles.length - 1];

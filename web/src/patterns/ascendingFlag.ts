@@ -4,6 +4,7 @@ import { linearRegression, lineAt } from "./regression";
 export function detectAscendingFlag(
   candles: Candle[],
   cfg: PatternConfig,
+  atr?: number,
 ): DetectedPattern[] {
   if (candles.length < cfg.flagMinBars + 5) return [];
 
@@ -21,6 +22,12 @@ export function detectAscendingFlag(
 
     const poleRise = (candles[poleEnd].close - candles[poleStart].close) / candles[poleStart].close;
     if (poleRise < cfg.flagPoleMinPct) continue;
+
+    // ATR-based pole length check
+    if (atr != null && atr > 0) {
+      const poleLen = candles[poleEnd].close - candles[poleStart].close;
+      if (poleLen < atr * cfg.flagPoleMinATR) continue;
+    }
 
     const maxFlagEnd = Math.min(poleEnd + cfg.flagMaxBars, candles.length - 1);
     for (let flagEnd = poleEnd + cfg.flagMinBars; flagEnd <= maxFlagEnd; flagEnd++) {

@@ -102,4 +102,11 @@ export interface PatternConfig {
   lineTouchMin: number; // 2
   lineRetestTol: number; // 0.003
   retestMaxBars: number; // 10
+  atrPeriod: number; // 14
+  pivotMinATR: number; // 0.8 (pivot spacing: min price diff as ATR multiple)
+  pivotMinBars: number; // 5 (pivot spacing: min bars between pivots)
+  cooldownBars: number; // 10 (same-kind signal cooldown)
+  minConfidence: number; // 0.6 (display threshold)
+  flagPoleMinATR: number; // 2.0 (flag pole min length as ATR multiple)
+  doubleMinDepthATR: number; // 1.0 (double top/bottom mid-peak depth as ATR multiple)
 }
