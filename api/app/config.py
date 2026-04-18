@@ -21,7 +21,7 @@ def load_settings() -> Settings:
         cors_origins=_parse_origins(
             os.getenv("CORS_ORIGINS", "https://reisun.github.io,http://localhost:5173")
         ),
-        cache_ttl_seconds=int(os.getenv("CACHE_TTL_SECONDS", "90")),
+        cache_ttl_seconds=int(os.getenv("CACHE_TTL_SECONDS", "300")),
         max_range_days=int(os.getenv("MAX_RANGE_DAYS", "60")),
-        data_source=os.getenv("DATA_SOURCE", "finnhub"),
+        data_source=os.getenv("DATA_SOURCE", "yfinance"),
     )

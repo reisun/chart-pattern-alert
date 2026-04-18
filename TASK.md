@@ -82,11 +82,11 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **状態**: データ構造は複数銘柄対応済。UI は最小限
 - **内容**: 通知履歴画面、銘柄別ステータス一覧、タブドラッグ並べ替え、未読バッジ等
 
-### B5. データソース切替（yfinance ↔ Stooq / Alpha Vantage）
+### B5. データソース切替（yfinance ↔ Finnhub / Alpha Vantage）
 
-- **状態**: API 側に `DataSource` Protocol は用意済（[`api/app/services/data_source.py`](./api/app/services/data_source.py)）
-- **内容**: 環境変数 `DATA_SOURCE` で切替、Stooq / Alpha Vantage 実装を追加
-- **動機**: yfinance のレート制限耐性向上
+- **状態**: 完了。`DATA_SOURCE` 環境変数で yfinance / finnhub / alphavantage を切替可能。デフォルトは yfinance（Finnhub・Alpha Vantage は無料枠で OHLCV 分足が制限されるため）。キャッシュ TTL を 300秒に延長しレートリミット耐性を向上
+- **内容**: 環境変数 `DATA_SOURCE` で切替、Finnhub / Alpha Vantage 実装を追加
+- **動機**: yfinance のレート制限耐性向上、将来の有料プラン契約時に即切替可能
 
 ---
 
