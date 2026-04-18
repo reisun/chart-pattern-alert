@@ -625,7 +625,7 @@ class AutoRoutingDataSource:
     def fetch_ohlcv(
         self, symbol: str, interval: str, range_: str
     ) -> tuple[list[Candle], str | None]:
-        if _is_japanese_stock(symbol):
+        if _is_japanese_stock(symbol) and interval in _JQUANTS_SUPPORTED_INTERVALS:
             return self._jquants.fetch_ohlcv(symbol, interval, range_)
         return self._default.fetch_ohlcv(symbol, interval, range_)
 
