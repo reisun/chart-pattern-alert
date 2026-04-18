@@ -26,7 +26,7 @@ export class App {
     this.rootEl = root;
     this.state = loadState();
     if (this.state.symbols.length === 0) {
-      this.state = { ...this.state, symbols: ["AAPL"], activeSymbol: "AAPL" };
+      this.state = { ...this.state, symbols: ["7974"], activeSymbol: "7974" };
       saveState(this.state);
     }
     if (!this.state.activeSymbol && this.state.symbols[0]) {
