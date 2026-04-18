@@ -8,7 +8,7 @@
 ## 本プロジェクトが扱う範囲
 
 - `api` コンテナを docker-compose で起動する
-- `chart-pattern-alert-net` ネットワーク上で `api:8000` として可用にする
+- `chart-pattern-alert-net` ネットワーク上で `api:8000` として可用にする（`docker-compose.yml` では `external: true` 宣言。ネットワーク自体は **`docker network create chart-pattern-alert-net` で事前作成**する前提）
 - `.env` の `CORS_ORIGINS` に本番オリジンを入れる
 
 ## 本プロジェクトが扱わない範囲
