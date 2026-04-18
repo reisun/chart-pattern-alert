@@ -681,6 +681,16 @@ def test_auto_routing_dispatches_jp_to_jquants():
     default.fetch_ohlcv.assert_not_called()
     assert tz == "Asia/Tokyo"
 
+def test_auto_routing_jp_intraday_falls_back_to_default():
+    """Japanese stock with unsupported interval (5m) should fall back to default source."""
+    default = MagicMock()
+    jquants = MagicMock()
+    default.fetch_ohlcv.return_value = ([{"time": 1}], None)
+    router = AutoRoutingDataSource(default=default, jquants=jquants)
+    candles, tz = router.fetch_ohlcv("7974", "5m", "5d")
+    default.fetch_ohlcv.assert_called_once_with("7974", "5m", "5d")
+    jquants.fetch_ohlcv.assert_not_called()
+
 def test_auto_routing_dispatches_us_to_default():
     default = MagicMock()
     jquants = MagicMock()
