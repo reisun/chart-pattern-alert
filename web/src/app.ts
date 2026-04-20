@@ -1,5 +1,6 @@
 import { ApiError, fetchOhlcv } from "./api/client";
-import { detectAll, defaultPatternConfig } from "./patterns";
+import { detectAll } from "./patterns";
+import { resolveConfig } from "./patterns/config";
 import type { Candle, DetectedPattern } from "./patterns/types";
 import { PATTERN_LABELS } from "./patterns/types";
 import { notifyPattern, requestPermission, getPermission } from "./services/notifier";
@@ -184,7 +185,7 @@ export class App {
       const candles: Candle[] = res.candles;
       this.clearError();
       this.chart?.setData(candles);
-      const allPatterns = detectAll(candles, defaultPatternConfig);
+      const allPatterns = detectAll(candles, resolveConfig(this.state.interval));
       const patterns = allPatterns.filter((p) => this.state.enabledPatterns.includes(p.kind));
       this.chart?.setMarkers(patterns);
       this.handlePatterns(sym, patterns);
@@ -196,7 +197,7 @@ export class App {
         : (err instanceof Error ? err.message : String(err));
       const candles = syntheticWShape();
       this.chart?.setData(candles);
-      const patterns = detectAll(candles, defaultPatternConfig);
+      const patterns = detectAll(candles, resolveConfig(this.state.interval));
       this.chart?.setMarkers(patterns);
       this.showError(`${msg} (showing synthetic data)`);
       this.setStatus("API error (fallback)", "err");
