@@ -38,10 +38,12 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **内容**: ブレイク足の出来高が直近 20 本平均の 1.5 倍以上で confidence +0.10
 - **実装**: `src/patterns/volume.ts`（新規）、`src/patterns/scoring.ts`（加点追加）、10パターン検出関数に volumeRatio 統合
 
-### B4. 複数銘柄タブ UX 改善
+### ~~B4. 複数銘柄タブ UX 改善~~ → 完了（MVP）
 
-- **状態**: データ構造は複数銘柄対応済。UI は最小限
-- **内容**: 通知履歴画面、銘柄別ステータス一覧、タブドラッグ並べ替え、未読バッジ等
+- **状態**: MVP 実装済み（未読バッジ + 通知履歴画面）
+- **内容**: 非アクティブタブの未読バッジ（ラウンドロビンバックグラウンドフェッチ）、検出履歴パネル（IndexedDB ログ閲覧）
+- **実装**: `src/app.ts`（backgroundFetchOne + 履歴パネル）、`src/ui/tabs.ts`（バッジ描画）、`src/state/appState.ts`（unreadCounts 永続化）
+- **残**: タブドラッグ並べ替え、銘柄別ステータス一覧
 
 ### A4. API 側 CORS に上流プロキシ公開オリジンを追加（必要時のみ）
 

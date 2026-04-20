@@ -19,6 +19,7 @@ export function renderTabs(
   container: HTMLElement,
   symbols: string[],
   active: string | null,
+  unreadCounts: Record<string, number>,
   handlers: TabsHandlers,
 ): void {
   document.querySelectorAll(".autocomplete-dropdown").forEach((el) => el.remove());
@@ -30,7 +31,9 @@ export function renderTabs(
     tab.type = "button";
     const stockName = findStockName(s);
     if (stockName) tab.title = stockName;
-    tab.innerHTML = `${escapeHtml(s)}<span class="close" title="Remove">✕</span>`;
+    const count = unreadCounts[s] ?? 0;
+    const badge = count > 0 ? `<span class="unread-badge">${count}</span>` : "";
+    tab.innerHTML = `${escapeHtml(s)}${badge}<span class="close" title="Remove">✕</span>`;
     tab.addEventListener("click", (ev) => {
       const target = ev.target as HTMLElement;
       if (target.classList.contains("close")) {

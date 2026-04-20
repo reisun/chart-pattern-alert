@@ -6,7 +6,7 @@ import { PATTERN_LABELS } from "./patterns/types";
 import { getHigherTimeframe, detectTrend, checkAlignment, adjustConfidence, type TrendDirection } from "./services/higherTimeframe";
 import { fetchHigherTfCandles } from "./services/higherTfCache";
 import { notifyPattern, requestPermission, getPermission, determineNotifLevel } from "./services/notifier";
-import { logPattern, getTrackingEntries, updateLogEntry, type PatternLogEntry } from "./services/patternLog";
+import { logPattern, getRecentLogs, getTrackingEntries, updateLogEntry, type PatternLogEntry } from "./services/patternLog";
 import { computeTargets, computeEvalWindow, intervalToSeconds, updateTracking } from "./services/patternTracker";
 import { startPolling, type PollingHandle } from "./services/polling";
 import { DEFAULT_STATE, addSeen, loadState, saveState, availableIntervals, type AppState, type Interval, type Scale } from "./state/appState";
@@ -26,6 +26,8 @@ export class App {
   private currentHigherTfTrend: TrendDirection | null = null;
   private currentHigherTf: string | null = null;
 
+  private bgFetchIndex = 0;
+
   private rootEl: HTMLElement;
   private tabsEl!: HTMLElement;
   private controlsEl!: HTMLElement;
@@ -33,6 +35,7 @@ export class App {
   private feedEl!: HTMLElement;
   private statusEl!: HTMLElement;
   private errorEl!: HTMLElement;
+  private historyPanelEl!: HTMLElement;
 
   constructor(root: HTMLElement) {
     this.rootEl = root;
@@ -61,6 +64,10 @@ export class App {
         <h2>Recent alerts</h2>
         <div id="feed"></div>
       </section>
+      <section class="history">
+        <button id="history-toggle" class="btn-link">\u{1F4CB} 検出履歴</button>
+        <div id="history-panel" class="hidden"></div>
+      </section>
     `;
     this.tabsEl = this.rootEl.querySelector<HTMLElement>("#tabs")!;
     this.controlsEl = this.rootEl.querySelector<HTMLElement>("#controls")!;
@@ -68,6 +75,13 @@ export class App {
     this.feedEl = this.rootEl.querySelector<HTMLElement>("#feed")!;
     this.statusEl = this.rootEl.querySelector<HTMLElement>("#status-text")!;
     this.errorEl = this.rootEl.querySelector<HTMLElement>("#error")!;
+    this.historyPanelEl = this.rootEl.querySelector<HTMLElement>("#history-panel")!;
+
+    const historyToggle = this.rootEl.querySelector<HTMLElement>("#history-toggle")!;
+    historyToggle.addEventListener("click", () => {
+      const isHidden = this.historyPanelEl.classList.toggle("hidden");
+      if (!isHidden) this.renderHistory();
+    });
 
     this.chart = createChartView(this.chartEl);
     this.renderAll();
@@ -75,7 +89,7 @@ export class App {
   }
 
   private renderAll(): void {
-    renderTabs(this.tabsEl, this.state.symbols, this.state.activeSymbol, {
+    renderTabs(this.tabsEl, this.state.symbols, this.state.activeSymbol, this.state.unreadCounts, {
       onSelect: (s) => this.setActive(s),
       onAdd: (s) => this.addSymbol(s),
       onRemove: (s) => this.removeSymbol(s),
@@ -124,7 +138,9 @@ export class App {
   private setActive(symbol: string): void {
     const allowed = availableIntervals(symbol);
     const interval = allowed.includes(this.state.interval) ? this.state.interval : allowed[0];
-    this.state = { ...this.state, activeSymbol: symbol, interval };
+    const counts = { ...this.state.unreadCounts };
+    delete counts[symbol];
+    this.state = { ...this.state, activeSymbol: symbol, interval, unreadCounts: counts };
     saveState(this.state);
     this.renderAll();
     this.polling?.tickNow();
@@ -214,6 +230,7 @@ export class App {
       this.handlePatterns(sym, patterns);
       await this.updateTrackingEntries(candles);
       this.setStatus(`ok · ${candles.length} bars`, "ok");
+      await this.backgroundFetchOne();
     } catch (err) {
       const msg = err instanceof ApiError
         ? `API ${err.status} · ${err.code} · ${err.message}`
@@ -369,6 +386,136 @@ export class App {
       }
     }
     this.trackingCache = stillTracking;
+  }
+
+  private async backgroundFetchOne(): Promise<void> {
+    const others = this.state.symbols.filter(s => s !== this.state.activeSymbol);
+    if (others.length === 0) return;
+
+    this.bgFetchIndex = this.bgFetchIndex % others.length;
+    const sym = others[this.bgFetchIndex];
+    this.bgFetchIndex++;
+
+    try {
+      const res = await fetchOhlcv(sym, this.state.interval, this.state.scale);
+      const cfg = resolveConfig(this.state.interval);
+      const allPatterns = detectAll(res.candles, cfg);
+      const patterns = allPatterns.filter(p => this.state.enabledPatterns.includes(p.kind));
+
+      // 上位足トレンド取得・調整
+      const higherTf = getHigherTimeframe(this.state.interval);
+      let bgTrend: TrendDirection | null = null;
+      if (higherTf) {
+        const htfCandles = await fetchHigherTfCandles(sym, higherTf);
+        bgTrend = htfCandles ? detectTrend(htfCandles) : null;
+      }
+      if (bgTrend) {
+        for (const p of patterns) {
+          const alignment = checkAlignment(p.direction, bgTrend);
+          p.confidence = adjustConfidence(p.confidence, alignment);
+        }
+      }
+
+      // 新パターン検出
+      const newOnes = patterns.filter(p => !this.state.seenPatternIds.includes(p.id));
+      if (newOnes.length > 0) {
+        // unreadCounts を更新
+        const counts = { ...this.state.unreadCounts };
+        counts[sym] = (counts[sym] ?? 0) + newOnes.length;
+        this.state = { ...this.state, unreadCounts: counts };
+
+        // ログ保存
+        for (const p of newOnes) {
+          const isConfirmed = p.status === "confirmed";
+          const evalStartPrice = p.entryPrice ?? p.neckline ?? 0;
+          const barSeconds = intervalToSeconds(this.state.interval);
+          const patternBars = barSeconds > 0 ? Math.max(1, Math.round((p.endTime - p.startTime) / barSeconds)) : 20;
+
+          const entry: PatternLogEntry = {
+            id: `${sym}:${p.id}`,
+            symbol: sym,
+            timeframe: this.state.interval,
+            kind: p.kind,
+            direction: p.direction,
+            status: p.status,
+            confidence: p.confidence,
+            detectedAt: p.detectedAt,
+            confirmedAt: p.confirmedAt,
+            entryPrice: p.entryPrice,
+            atrAtDetection: p.atrAtDetection,
+            loggedAt: Date.now(),
+            outcome: isConfirmed ? "tracking" : "expired",
+            mfe: 0,
+            mae: 0,
+            evalWindowBars: isConfirmed ? computeEvalWindow(patternBars) : 0,
+            evalStartPrice,
+            successTarget: 0,
+            failTarget: 0,
+            barsElapsed: 0,
+          };
+
+          if (isConfirmed && evalStartPrice > 0) {
+            const targets = computeTargets(entry);
+            entry.successTarget = targets.successTarget;
+            entry.failTarget = targets.failTarget;
+          }
+
+          logPattern(entry);
+
+          if (entry.outcome === "tracking") {
+            this.trackingCache.push(entry);
+          }
+        }
+
+        // 通知
+        if (this.state.notificationEnabled && getPermission() === "granted") {
+          for (const p of newOnes) {
+            if (p.status === "confirmed") {
+              const alignment = checkAlignment(p.direction, bgTrend);
+              const higherTfAligned = alignment === "aligned";
+              const level = determineNotifLevel(p, higherTfAligned);
+              notifyPattern(sym, p, level);
+            }
+          }
+        }
+
+        // seenPatternIds 更新
+        this.state = { ...this.state, seenPatternIds: addSeen(this.state, newOnes.map(p => p.id)) };
+        saveState(this.state);
+
+        this.renderTabs();
+      }
+    } catch {
+      // バックグラウンドフェッチ失敗は silent
+    }
+  }
+
+  private renderTabs(): void {
+    renderTabs(this.tabsEl, this.state.symbols, this.state.activeSymbol, this.state.unreadCounts, {
+      onSelect: (s) => this.setActive(s),
+      onAdd: (s) => this.addSymbol(s),
+      onRemove: (s) => this.removeSymbol(s),
+    });
+  }
+
+  private async renderHistory(): Promise<void> {
+    const logs = await getRecentLogs(50);
+    this.historyPanelEl.innerHTML = logs.length === 0
+      ? '<div class="muted">履歴なし</div>'
+      : logs.map(log => {
+          const t = new Date(log.loggedAt).toLocaleString();
+          const kind = PATTERN_LABELS[log.kind];
+          const dir = log.direction === "bullish" ? "\u25B2" : "\u25BC";
+          const outcomeBadge = ({ tracking: "\u23F3", success: "\u2705", fail: "\u274C", expired: "\u23F0" } as Record<string, string>)[log.outcome] ?? "";
+          const mfeStr = log.mfe > 0 ? `MFE +${log.mfe.toFixed(1)}ATR` : "";
+          const maeStr = log.mae > 0 ? `MAE -${log.mae.toFixed(1)}ATR` : "";
+          return `<div class="history-item">
+            <span class="time">${t}</span>
+            <span class="${log.direction === "bullish" ? "bull" : "bear"}">${dir} ${log.symbol} ${kind}</span>
+            <span class="muted">conf ${log.confidence.toFixed(2)}</span>
+            ${outcomeBadge} ${[mfeStr, maeStr].filter(Boolean).join(" / ")}
+          </div>`;
+        }).join("");
   }
 
   private setStatus(text: string, level: "ok" | "warn" | "err"): void {

@@ -11,6 +11,7 @@ export interface AppState {
   notificationEnabled: boolean;
   seenPatternIds: string[];
   enabledPatterns: PatternKind[];
+  unreadCounts: Record<string, number>;
 }
 
 export type Interval = "5m" | "15m" | "1h" | "1d";
@@ -45,6 +46,7 @@ export const DEFAULT_STATE: AppState = {
   notificationEnabled: false,
   seenPatternIds: [],
   enabledPatterns: [...ALL_PATTERN_KINDS],
+  unreadCounts: {},
 };
 
 const MAX_SEEN = 500;
@@ -60,6 +62,7 @@ export function loadState(): AppState {
     notificationEnabled: getJson<boolean>(StorageKeys.notificationEnabled, DEFAULT_STATE.notificationEnabled),
     seenPatternIds: getJson<string[]>(StorageKeys.seenPatternIds, DEFAULT_STATE.seenPatternIds),
     enabledPatterns: getJson<PatternKind[]>(StorageKeys.enabledPatterns, DEFAULT_STATE.enabledPatterns),
+    unreadCounts: getJson<Record<string, number>>(StorageKeys.unreadCounts, DEFAULT_STATE.unreadCounts),
   };
 }
 
@@ -72,6 +75,7 @@ export function saveState(state: AppState): void {
   setJson(StorageKeys.notificationEnabled, state.notificationEnabled);
   setJson(StorageKeys.seenPatternIds, state.seenPatternIds.slice(-MAX_SEEN));
   setJson(StorageKeys.enabledPatterns, state.enabledPatterns);
+  setJson(StorageKeys.unreadCounts, state.unreadCounts);
 }
 
 export function addSeen(state: AppState, ids: string[]): string[] {

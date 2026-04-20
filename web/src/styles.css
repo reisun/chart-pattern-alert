@@ -121,6 +121,43 @@ html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: 
 .level-l3 { color: #5b9cf6; background: #1a2a4a; border: 1px solid #3a5a8a; }
 .level-l4 { color: #f0a040; background: #3a2a1a; border: 1px solid #8a6a3a; }
 
+.unread-badge {
+  background: #ef5350;
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  padding: 1px 5px;
+  margin-left: 4px;
+  vertical-align: top;
+}
+
+.history {
+  border-top: 1px solid var(--border); background: var(--surface); padding: 8px 14px;
+}
+.history-item {
+  padding: 4px 8px;
+  border-bottom: 1px solid #1d212c;
+  font-size: 0.85rem;
+}
+.history-item .time { color: var(--text-muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+.history-item .bull { color: var(--bull); }
+.history-item .bear { color: var(--bear); }
+
+#history-panel {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #c7c9d1;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 8px 0;
+}
+.btn-link:hover { color: #fff; }
+
 .hidden { display: none; }
 .muted { color: var(--text-muted); }
 .error { color: var(--bear); font-size: 12px; padding: 4px 14px; }
