@@ -30,3 +30,62 @@ export const defaultPatternConfig: PatternConfig = {
   flagPoleMinATR: 2.0,
   doubleMinDepthATR: 1.0,
 };
+
+// 時間足ごとのオーバーライド（Partial）
+const INTERVAL_OVERRIDES: Record<string, Partial<PatternConfig>> = {
+  "1m": {
+    minSwingPct: 0.005,
+    pivotMinATR: 1.5,
+    patternMinBars: 8,
+    patternMaxBars: 30,
+    cooldownBars: 20,
+    minConfidence: 0.7,
+  },
+  "5m": {
+    minSwingPct: 0.008,
+    pivotMinATR: 1.2,
+    patternMinBars: 8,
+    patternMaxBars: 40,
+    cooldownBars: 15,
+  },
+  "15m": {
+    minSwingPct: 0.012,
+    pivotMinATR: 1.0,
+    patternMinBars: 10,
+    patternMaxBars: 50,
+    cooldownBars: 12,
+  },
+  "30m": {
+    minSwingPct: 0.012,
+    pivotMinATR: 0.9,
+    patternMinBars: 10,
+    patternMaxBars: 50,
+    cooldownBars: 10,
+  },
+  "1h": {
+    // defaultPatternConfig と同じ値が多いのでオーバーライド最小
+  },
+  "4h": {
+    patternMinBars: 8,
+    patternMaxBars: 40,
+    cooldownBars: 8,
+  },
+  "1d": {
+    minSwingPct: 0.020,
+    pivotMinATR: 0.6,
+    patternMinBars: 8,
+    patternMaxBars: 40,
+    cooldownBars: 5,
+  },
+  "1wk": {
+    minSwingPct: 0.025,
+    pivotMinATR: 0.5,
+    patternMinBars: 6,
+    patternMaxBars: 30,
+    cooldownBars: 3,
+  },
+};
+
+export function resolveConfig(interval: string): PatternConfig {
+  return { ...defaultPatternConfig, ...(INTERVAL_OVERRIDES[interval] ?? {}) };
+}
