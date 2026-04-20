@@ -25,11 +25,11 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **状態**: レビュー指摘あり。未実装
 - **内容**: L1 候補出現（表示のみ）→ L2 確定（通知候補）→ L3 確定+上位足一致+スコア閾値超え（通知）→ L4 確定+初動強い（強通知）
 
-### B2. 上位足整合の簡易表示
+### ~~B2. 上位足整合の簡易表示~~ → 完了
 
-- **状態**: 設計書言及あり（[`docs/architecture.md`](./docs/architecture.md), [`docs/patterns/common.md`](./docs/patterns/common.md)）。未実装
-- **内容**: たとえば 15m 足で検出されたパターンの信頼度を 1h 足のトレンド方向で加点/減点
-- **実装案**: `detectAll` 呼び出し時に上位足 OHLCV を別途取得しトレンド方向を判定、`DetectedPattern.confidence` を補正
+- **状態**: 実装済み
+- **内容**: 上位足 EMA(20) のトレンドとパターン方向の整合で confidence ±0.10
+- **実装**: `src/services/higherTimeframe.ts`（トレンド判定）、`src/services/higherTfCache.ts`（TTL キャッシュ）、`src/app.ts`（tick 統合・Feed バッジ）
 
 ### ~~B3. 出来高判定による confidence 加点~~ → 完了
 
