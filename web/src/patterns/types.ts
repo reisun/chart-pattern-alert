@@ -79,6 +79,7 @@ export interface ScoringFactors {
   symmetry: number;
   patternMinBars: number;
   patternMaxBars: number;
+  volumeRatio?: number; // breakout candle volume / avg volume (optional, 0 or undefined = skip)
 }
 
 export interface DetectedPattern {

@@ -1,5 +1,6 @@
 import type { Candle, DetectedPattern, PatternConfig, Pivot } from "./types";
 import { computeConfidence } from "./scoring";
+import { volumeRatio } from "./volume";
 import { linearRegression, lineAt } from "./regression";
 
 export function detectAscendingTriangle(
@@ -53,6 +54,7 @@ export function detectAscendingTriangle(
         symmetry: Math.min(1, touchCount / cfg.triMinTouches),
         patternMinBars: cfg.triMinBars,
         patternMaxBars: cfg.triMaxBars,
+        volumeRatio: volumeRatio(candles, candles.length - 1),
       });
 
       out.push({

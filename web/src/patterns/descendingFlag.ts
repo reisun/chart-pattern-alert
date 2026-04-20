@@ -1,5 +1,6 @@
 import type { Candle, DetectedPattern, PatternConfig } from "./types";
 import { computeConfidence } from "./scoring";
+import { volumeRatio } from "./volume";
 import { linearRegression, lineAt } from "./regression";
 
 export function detectDescendingFlag(
@@ -63,6 +64,7 @@ export function detectDescendingFlag(
         symmetry: cfg.flagSlopeMax > 0 ? Math.max(0, 1 - Math.abs(slopeH - slopeL) / cfg.flagSlopeMax) : 0,
         patternMinBars: cfg.flagMinBars,
         patternMaxBars: cfg.flagMaxBars,
+        volumeRatio: volumeRatio(candles, candles.length - 1),
       });
 
       out.push({

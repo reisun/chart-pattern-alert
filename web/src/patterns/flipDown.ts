@@ -1,5 +1,6 @@
 import type { Candle, DetectedPattern, PatternConfig, Pivot } from "./types";
 import { computeConfidence } from "./scoring";
+import { volumeRatio } from "./volume";
 import { linearRegression, lineAt } from "./regression";
 
 export function detectFlipDown(
@@ -76,6 +77,7 @@ export function detectFlipDown(
         symmetry: Math.min(1, touchCount / cfg.lineTouchMin),
         patternMinBars: cfg.patternMinBars,
         patternMaxBars: cfg.patternMaxBars,
+        volumeRatio: volumeRatio(candles, candles.length - 1),
       });
 
       out.push({
