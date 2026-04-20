@@ -111,5 +111,6 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 | fix | 日本株 interval 制限（J-Quants制約） | [#11](https://github.com/reisun/chart-pattern-alert/pull/11) |
 | feat | パターン ON/OFF フィルタ・日本語ラベル | [#12](https://github.com/reisun/chart-pattern-alert/pull/12) |
 | feat | パターン検出精度改善（ATR・クールダウン・厳格化） | [#13](https://github.com/reisun/chart-pattern-alert/pull/13) |
+| feat | 主要銘柄の企業名オートコンプリート機能 | [#14](https://github.com/reisun/chart-pattern-alert/pull/14) |
 
 公開 URL: https://reisun.github.io/chart-pattern-alert/
