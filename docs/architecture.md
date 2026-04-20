@@ -48,7 +48,8 @@
 3. lightweight-charts で描画 → パターン検出器に OHLCV を渡す
 4. 検出結果をマーカーとして描画（candidate は灰色、confirmed は方向色）
 5. 新規 confirmed パターンなら通知を発火、全パターンを IndexedDB にログ保存
-6. ポーリング間隔ごとに 2〜5 を繰り返す
+6. confirmed パターンの事後追跡（ATR 連動の成功/失敗判定、MFE/MAE 計測）
+7. ポーリング間隔ごとに 2〜6 を繰り返す
 
 ## パターン検出の配置方針
 
@@ -112,8 +113,41 @@ type DetectedPattern = {
 | entryPrice | number? | エントリー価格 |
 | atrAtDetection | number | 検出時 ATR |
 | loggedAt | number | ログ保存時刻 |
+| outcome | PatternOutcome | tracking / success / fail / expired |
+| mfe | number | Maximum Favorable Excursion（ATR 倍率） |
+| mae | number | Maximum Adverse Excursion（ATR 倍率） |
+| evalWindowBars | number | 評価窓の本数 |
+| evalStartPrice | number | 追跡開始価格 |
+| successTarget | number | 成功判定ライン |
+| failTarget | number | 失敗判定ライン |
+| outcomeAt | number? | 結果確定時刻 |
+| barsElapsed | number | 経過本数 |
+
+DB バージョン: 2（v1 → v2 でマイグレーション対応済み）
 
 実装: `src/services/patternLog.ts`
+
+## 評価窓（事後追跡）
+
+confirmed パターンに対して、ブレイク後の値動きを追跡し成否を判定する。
+
+### 成功/失敗条件（方向対称）
+
+| 方向 | 成功 | 失敗 | 打ち切り |
+|------|------|------|----------|
+| bullish | +2ATR 到達 | -1ATR 逆行 | 窓超過 |
+| bearish | -2ATR 到達 | +1ATR 逆行 | 窓超過 |
+
+### 評価窓の本数
+
+パターン形成本数の 1.5 倍（最小 20 本、最大 100 本）
+
+### MFE / MAE
+
+- MFE（Maximum Favorable Excursion）: 追跡期間中の最大含み益（ATR 倍率）
+- MAE（Maximum Adverse Excursion）: 追跡期間中の最大含み損（ATR 倍率）
+
+実装: `src/services/patternTracker.ts`
 
 ## 制約・非目標
 

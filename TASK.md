@@ -8,11 +8,11 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 
 機能拡張。優先度は上から推奨順。各項目は **単独で lead-task 1 本** に相当する粒度。
 
-### B6. 評価窓（Phase2）
+### ~~B6. 評価窓（Phase2）~~ → 完了
 
-- **状態**: レビュー指摘あり（`.human/.review`）。未実装
+- **状態**: 実装済み
 - **内容**: 検出後の事後追跡。ATR 評価窓（+2ATR 成功 / -1ATR 失敗）、パターンサイズ連動窓、MFE/MAE 計測
-- **前提**: B-review の IndexedDB ログ基盤が実装済
+- **実装**: `src/services/patternTracker.ts`（新規）、`src/services/patternLog.ts`（DB v2 マイグレーション）、`src/app.ts`（tick 統合・Feed 表示）
 
 ### B7. 時間足別チューニング（Phase2）
 
@@ -87,6 +87,6 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 | feat | 主要銘柄の企業名オートコンプリート機能 | [#14](https://github.com/reisun/chart-pattern-alert/pull/14) |
 | feat | クレンジング考慮の入力補完 (Z-2) | [#15](https://github.com/reisun/chart-pattern-alert/pull/15) |
 | feat | Z-3 タブツールチップ企業名表示 & Z-4 通知改善 | [#16](https://github.com/reisun/chart-pattern-alert/pull/16) |
-| B-review | パターン状態3段階化・多要素スコアリング・通知品質向上・検出ログ基盤 | — |
+| B-review | パターン状態3段階化・多要素スコアリング・通知品質向上・検出ログ基盤 | [#17](https://github.com/reisun/chart-pattern-alert/pull/17) |
 
 公開 URL: https://reisun.github.io/chart-pattern-alert/
