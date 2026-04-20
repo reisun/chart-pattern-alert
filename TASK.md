@@ -46,8 +46,8 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 
 ## Z. ユーザー要望
 
-1. 現在企業のコードを入力しなければならないので、日本株、米国株ともに主要なものは企業名で選択できるようにして欲しいです。 
-2. 入力中の企業コードや企業名に基づいて、クレンジングなども考慮した入力補完を表示して欲しいです。
+~~1. 現在企業のコードを入力しなければならないので、日本株、米国株ともに主要なものは企業名で選択できるようにして欲しいです。~~ → 完了（[#14](https://github.com/reisun/chart-pattern-alert/pull/14)）
+~~2. 入力中の企業コードや企業名に基づいて、クレンジングなども考慮した入力補完を表示して欲しいです。~~ → 完了（[#15](https://github.com/reisun/chart-pattern-alert/pull/15)）
 
 ---
 
@@ -66,5 +66,6 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 | feat | パターン ON/OFF フィルタ・日本語ラベル | [#12](https://github.com/reisun/chart-pattern-alert/pull/12) |
 | feat | パターン検出精度改善（ATR・クールダウン・厳格化） | [#13](https://github.com/reisun/chart-pattern-alert/pull/13) |
 | feat | 主要銘柄の企業名オートコンプリート機能 | [#14](https://github.com/reisun/chart-pattern-alert/pull/14) |
+| feat | クレンジング考慮の入力補完 (Z-2) | [#15](https://github.com/reisun/chart-pattern-alert/pull/15) |
 
 公開 URL: https://reisun.github.io/chart-pattern-alert/
