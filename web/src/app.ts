@@ -5,7 +5,7 @@ import type { Candle, DetectedPattern } from "./patterns/types";
 import { PATTERN_LABELS } from "./patterns/types";
 import { getHigherTimeframe, detectTrend, checkAlignment, adjustConfidence, type TrendDirection } from "./services/higherTimeframe";
 import { fetchHigherTfCandles } from "./services/higherTfCache";
-import { notifyPattern, requestPermission, getPermission } from "./services/notifier";
+import { notifyPattern, requestPermission, getPermission, determineNotifLevel } from "./services/notifier";
 import { logPattern, getTrackingEntries, updateLogEntry, type PatternLogEntry } from "./services/patternLog";
 import { computeTargets, computeEvalWindow, intervalToSeconds, updateTracking } from "./services/patternTracker";
 import { startPolling, type PollingHandle } from "./services/polling";
@@ -281,7 +281,10 @@ export class App {
     if (this.state.notificationEnabled && getPermission() === "granted" && !suppress) {
       for (const p of newOnes) {
         if (p.status === "confirmed") {
-          notifyPattern(symbol, p);
+          const alignment = checkAlignment(p.direction, this.currentHigherTfTrend);
+          const higherTfAligned = alignment === "aligned";
+          const level = determineNotifLevel(p, higherTfAligned);
+          notifyPattern(symbol, p, level);
         }
       }
     }
@@ -311,6 +314,17 @@ export class App {
           const neck = p.neckline ? ` · neckline ${p.neckline.toFixed(2)}` : "";
           const statusBadge = p.status === "confirmed" ? "✓" : "?";
 
+          // 通知レベルバッジ
+          let levelBadge = "";
+          if (p.status === "confirmed") {
+            const alignment = checkAlignment(p.direction, this.currentHigherTfTrend);
+            const aligned = alignment === "aligned";
+            const level = determineNotifLevel(p, aligned);
+            if (level === "L4") levelBadge = ` <span class="level-badge level-l4">⚠L4</span>`;
+            else if (level === "L3") levelBadge = ` <span class="level-badge level-l3">L3</span>`;
+            else if (level === "L2") levelBadge = ` <span class="level-badge level-l2">L2</span>`;
+          }
+
           // Find tracking info from cache
           const trackId = `${this.state.activeSymbol}:${p.id}`;
           const tracked = this.trackingCache.find((e) => e.id === trackId);
@@ -325,7 +339,7 @@ export class App {
             trackingInfo = ` <span class="${outcomeClass}">${outcomeBadge}${progress}</span>${excursion ? ` <span class="muted">${excursion}</span>` : ""}`;
           }
 
-          return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind} ${statusBadge}</span>${trendBadge ? ` ${trendBadge}` : ""}${neck}${trackingInfo} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
+          return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind} ${statusBadge}</span>${levelBadge}${trendBadge ? ` ${trendBadge}` : ""}${neck}${trackingInfo} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
         }).join("");
   }
 

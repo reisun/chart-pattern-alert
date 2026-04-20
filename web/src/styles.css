@@ -113,6 +113,14 @@ html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: 
 .trend-bearish { color: var(--bear); border-color: var(--bear); }
 .trend-neutral { color: var(--text-muted); }
 
+.level-badge {
+  font-size: 10px; font-weight: 600; padding: 1px 4px; border-radius: 3px;
+  margin-left: 4px;
+}
+.level-l2 { color: var(--text-muted); background: #2a2d3a; }
+.level-l3 { color: #5b9cf6; background: #1a2a4a; border: 1px solid #3a5a8a; }
+.level-l4 { color: #f0a040; background: #3a2a1a; border: 1px solid #8a6a3a; }
+
 .hidden { display: none; }
 .muted { color: var(--text-muted); }
 .error { color: var(--bear); font-size: 12px; padding: 4px 14px; }
