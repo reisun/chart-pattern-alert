@@ -3,6 +3,8 @@ import { detectAll } from "./patterns";
 import { resolveConfig } from "./patterns/config";
 import type { Candle, DetectedPattern } from "./patterns/types";
 import { PATTERN_LABELS } from "./patterns/types";
+import { getHigherTimeframe, detectTrend, checkAlignment, adjustConfidence, type TrendDirection } from "./services/higherTimeframe";
+import { fetchHigherTfCandles } from "./services/higherTfCache";
 import { notifyPattern, requestPermission, getPermission } from "./services/notifier";
 import { logPattern, getTrackingEntries, updateLogEntry, type PatternLogEntry } from "./services/patternLog";
 import { computeTargets, computeEvalWindow, intervalToSeconds, updateTracking } from "./services/patternTracker";
@@ -21,6 +23,8 @@ export class App {
   private notifySuppress = false;
   private trackingCache: PatternLogEntry[] = [];
   private trackingCacheReady = false;
+  private currentHigherTfTrend: TrendDirection | null = null;
+  private currentHigherTf: string | null = null;
 
   private rootEl: HTMLElement;
   private tabsEl!: HTMLElement;
@@ -187,6 +191,25 @@ export class App {
       this.chart?.setData(candles);
       const allPatterns = detectAll(candles, resolveConfig(this.state.interval));
       const patterns = allPatterns.filter((p) => this.state.enabledPatterns.includes(p.kind));
+
+      // 上位足トレンド取得
+      const higherTf = getHigherTimeframe(this.state.interval);
+      this.currentHigherTf = higherTf;
+      if (higherTf) {
+        const htfCandles = await fetchHigherTfCandles(sym, higherTf);
+        this.currentHigherTfTrend = htfCandles ? detectTrend(htfCandles) : null;
+      } else {
+        this.currentHigherTfTrend = null;
+      }
+
+      // パターンの confidence を上位足整合で調整
+      if (this.currentHigherTfTrend) {
+        for (const p of patterns) {
+          const alignment = checkAlignment(p.direction, this.currentHigherTfTrend);
+          p.confidence = adjustConfidence(p.confidence, alignment);
+        }
+      }
+
       this.chart?.setMarkers(patterns);
       this.handlePatterns(sym, patterns);
       await this.updateTrackingEntries(candles);
@@ -269,8 +292,17 @@ export class App {
 
   private renderFeed(patterns: DetectedPattern[]): void {
     const sorted = [...patterns].sort((a, b) => b.markerTime - a.markerTime).slice(0, 20);
+
+    // 上位足トレンドバッジ
+    const trendBadge = this.currentHigherTfTrend && this.currentHigherTf
+      ? (() => {
+          const arrow = this.currentHigherTfTrend === "bullish" ? "\u2191" : this.currentHigherTfTrend === "bearish" ? "\u2193" : "\u2192";
+          return `<span class="trend-badge trend-${this.currentHigherTfTrend}">[${this.currentHigherTf}${arrow}]</span>`;
+        })()
+      : "";
+
     this.feedEl.innerHTML = sorted.length === 0
-      ? `<div class="muted">No patterns detected in current window.</div>`
+      ? `<div class="muted">No patterns detected in current window.${trendBadge ? ` ${trendBadge}` : ""}</div>`
       : sorted.map((p) => {
           const t = new Date(p.markerTime * 1000).toLocaleString();
           const dirClass = p.direction === "bullish" ? "bull" : "bear";
@@ -293,7 +325,7 @@ export class App {
             trackingInfo = ` <span class="${outcomeClass}">${outcomeBadge}${progress}</span>${excursion ? ` <span class="muted">${excursion}</span>` : ""}`;
           }
 
-          return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind} ${statusBadge}</span>${neck}${trackingInfo} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
+          return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind} ${statusBadge}</span>${trendBadge ? ` ${trendBadge}` : ""}${neck}${trackingInfo} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
         }).join("");
   }
 
