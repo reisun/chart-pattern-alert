@@ -20,10 +20,11 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **内容**: 時間足ごとに異なる検出閾値・評価窓・通知条件・重複抑制幅を持つ config 分離
 - **実装**: `src/patterns/config.ts` に `resolveConfig()` + `INTERVAL_OVERRIDES`（Partial マージ）、`src/app.ts` で interval に応じた config を使用
 
-### B8. 通知レベル 4 段階（Phase2）
+### ~~B8. 通知レベル 4 段階（Phase2）~~ → 完了
 
-- **状態**: レビュー指摘あり。未実装
-- **内容**: L1 候補出現（表示のみ）→ L2 確定（通知候補）→ L3 確定+上位足一致+スコア閾値超え（通知）→ L4 確定+初動強い（強通知）
+- **状態**: 実装済み
+- **内容**: L1 候補表示のみ → L2 確定（Feed表示）→ L3 確定+上位足一致+conf≥0.7（通知）→ L4 確定+上位足一致+conf≥0.8（⚠強通知）
+- **実装**: `src/services/notifier.ts`（determineNotifLevel + level付き通知）、`src/app.ts`（統合）
 
 ### ~~B2. 上位足整合の簡易表示~~ → 完了
 

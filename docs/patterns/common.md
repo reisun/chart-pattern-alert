@@ -69,7 +69,21 @@ bullish/bearish で完全対称（出来高は方向に依存しない）。
 - ネックライン突破後に **確定（confirmed）** として方向色マーカーに昇格
 - 通知は confirmed のみ発火し、candidate の誤爆通知を抑制
 
-## 5. 損切り位置（情報提供）
+## 5a. 通知レベル 4 段階
+
+| Level | 条件 | 動作 |
+|-------|------|------|
+| L1 | candidate | 画面表示のみ（灰色マーカー） |
+| L2 | confirmed | Feed 表示（通知なし） |
+| L3 | confirmed + 上位足一致 + confidence ≥ 0.7 | ブラウザ通知 |
+| L4 | confirmed + 上位足一致 + confidence ≥ 0.8 | ⚠ 強通知 |
+
+L3 以上のみブラウザ通知を発火。L4 はタイトルに ⚠ マークを付加。
+上位足整合が unavailable（上位足なし or 取得失敗）の場合は L2 に落とす。
+
+実装: `src/services/notifier.ts` の `determineNotifLevel()`
+
+## 5b. 損切り位置（情報提供）
 
 通知本文や AlertFeed に、想定される損切り位置の目安を併記すると親切。
 - Bullish: 直近安値
