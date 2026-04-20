@@ -3,7 +3,8 @@ import { detectAll, defaultPatternConfig } from "./patterns";
 import type { Candle, DetectedPattern } from "./patterns/types";
 import { PATTERN_LABELS } from "./patterns/types";
 import { notifyPattern, requestPermission, getPermission } from "./services/notifier";
-import { logPattern, type PatternLogEntry } from "./services/patternLog";
+import { logPattern, getTrackingEntries, updateLogEntry, type PatternLogEntry } from "./services/patternLog";
+import { computeTargets, computeEvalWindow, intervalToSeconds, updateTracking } from "./services/patternTracker";
 import { startPolling, type PollingHandle } from "./services/polling";
 import { DEFAULT_STATE, addSeen, loadState, saveState, availableIntervals, type AppState, type Interval, type Scale } from "./state/appState";
 import { createChartView, type ChartHandle } from "./ui/chart";
@@ -17,6 +18,8 @@ export class App {
   private polling: PollingHandle | null = null;
 
   private notifySuppress = false;
+  private trackingCache: PatternLogEntry[] = [];
+  private trackingCacheReady = false;
 
   private rootEl: HTMLElement;
   private tabsEl!: HTMLElement;
@@ -185,6 +188,7 @@ export class App {
       const patterns = allPatterns.filter((p) => this.state.enabledPatterns.includes(p.kind));
       this.chart?.setMarkers(patterns);
       this.handlePatterns(sym, patterns);
+      await this.updateTrackingEntries(candles);
       this.setStatus(`ok · ${candles.length} bars`, "ok");
     } catch (err) {
       const msg = err instanceof ApiError
@@ -204,6 +208,11 @@ export class App {
     this.renderFeed(patterns);
 
     for (const p of newOnes) {
+      const isConfirmed = p.status === "confirmed";
+      const evalStartPrice = p.entryPrice ?? p.neckline ?? 0;
+      const barSeconds = intervalToSeconds(this.state.interval);
+      const patternBars = barSeconds > 0 ? Math.max(1, Math.round((p.endTime - p.startTime) / barSeconds)) : 20;
+
       const entry: PatternLogEntry = {
         id: `${symbol}:${p.id}`,
         symbol,
@@ -217,8 +226,28 @@ export class App {
         entryPrice: p.entryPrice,
         atrAtDetection: p.atrAtDetection,
         loggedAt: Date.now(),
+        outcome: isConfirmed ? "tracking" : "expired",
+        mfe: 0,
+        mae: 0,
+        evalWindowBars: isConfirmed ? computeEvalWindow(patternBars) : 0,
+        evalStartPrice,
+        successTarget: 0,
+        failTarget: 0,
+        barsElapsed: 0,
       };
+
+      if (isConfirmed && evalStartPrice > 0) {
+        const targets = computeTargets(entry);
+        entry.successTarget = targets.successTarget;
+        entry.failTarget = targets.failTarget;
+      }
+
       logPattern(entry);
+
+      // Add to tracking cache
+      if (entry.outcome === "tracking") {
+        this.trackingCache.push(entry);
+      }
     }
 
     const suppress = this.notifySuppress;
@@ -248,8 +277,51 @@ export class App {
           const kind = PATTERN_LABELS[p.kind];
           const neck = p.neckline ? ` · neckline ${p.neckline.toFixed(2)}` : "";
           const statusBadge = p.status === "confirmed" ? "✓" : "?";
-          return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind} ${statusBadge}</span>${neck} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
+
+          // Find tracking info from cache
+          const trackId = `${this.state.activeSymbol}:${p.id}`;
+          const tracked = this.trackingCache.find((e) => e.id === trackId);
+          let trackingInfo = "";
+          if (tracked) {
+            const outcomeBadge = { tracking: "\u23F3", success: "\u2705", fail: "\u274C", expired: "\u23F0" }[tracked.outcome];
+            const outcomeClass = { tracking: "outcome-tracking", success: "outcome-success", fail: "outcome-fail", expired: "outcome-expired" }[tracked.outcome];
+            const mfeStr = tracked.mfe > 0 ? `MFE +${tracked.mfe.toFixed(1)}ATR` : "";
+            const maeStr = tracked.mae > 0 ? `MAE -${tracked.mae.toFixed(1)}ATR` : "";
+            const excursion = [mfeStr, maeStr].filter(Boolean).join(" / ");
+            const progress = tracked.outcome === "tracking" ? ` ${tracked.barsElapsed}/${tracked.evalWindowBars}本` : "";
+            trackingInfo = ` <span class="${outcomeClass}">${outcomeBadge}${progress}</span>${excursion ? ` <span class="muted">${excursion}</span>` : ""}`;
+          }
+
+          return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind} ${statusBadge}</span>${neck}${trackingInfo} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
         }).join("");
+  }
+
+  private async updateTrackingEntries(candles: Candle[]): Promise<void> {
+    if (candles.length === 0) return;
+    const latestCandle = candles[candles.length - 1];
+
+    // Initialize cache from DB on first call
+    if (!this.trackingCacheReady) {
+      try {
+        this.trackingCache = await getTrackingEntries();
+      } catch {
+        this.trackingCache = [];
+      }
+      this.trackingCacheReady = true;
+    }
+
+    const stillTracking: PatternLogEntry[] = [];
+    for (const entry of this.trackingCache) {
+      const updated = updateTracking(entry, latestCandle);
+      if (updated !== entry) {
+        // Entry changed — write back to DB
+        await updateLogEntry(updated);
+      }
+      if (updated.outcome === "tracking") {
+        stillTracking.push(updated);
+      }
+    }
+    this.trackingCache = stillTracking;
   }
 
   private setStatus(text: string, level: "ok" | "warn" | "err"): void {
