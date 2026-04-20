@@ -11,7 +11,7 @@
 |  - lightweight-charts    |           |         |              |
 |  - Notification/SW       |           |         v              |
 |  - Pattern Detection     |           |  [FastAPI (this repo)] |
-|  - localStorage          |           |  - /health             |
+|  - localStorage/IndexedDB |           |  - /health             |
 +--------------------------+           |  - /ohlcv (yfinance)   |
                                        |  - in-memory cache     |
                                        +------------------------+
@@ -21,6 +21,7 @@
 
 ### Frontend (`web/`)
 - 銘柄・時間足・スケール・ポーリング間隔の UI と設定永続化（localStorage）
+- 検出ログ永続化（IndexedDB）
 - API クライアント: `VITE_API_BASE_URL` 経由で OHLCV 取得
 - チャート描画: lightweight-charts（ローソク足、出来高、マーカー）
 - パターン検出（TypeScript 内実装）: OHLCV 配列 → 検出結果（パターン種別 + 位置）
@@ -45,8 +46,9 @@
 1. ブラウザでアプリを開く → localStorage から設定を復元
 2. ユーザーが銘柄・時間足を確定 → API `/ohlcv` を呼ぶ
 3. lightweight-charts で描画 → パターン検出器に OHLCV を渡す
-4. 検出結果をマーカーとして描画、かつ新規検出なら通知を発火
-5. ポーリング間隔ごとに 2〜4 を繰り返す
+4. 検出結果をマーカーとして描画（candidate は灰色、confirmed は方向色）
+5. 新規 confirmed パターンなら通知を発火、全パターンを IndexedDB にログ保存
+6. ポーリング間隔ごとに 2〜5 を繰り返す
 
 ## パターン検出の配置方針
 
@@ -66,17 +68,52 @@ type Candle = {
   volume: number;
 };
 
+type PatternStatus = 'candidate' | 'confirmed' | 'invalidated';
+
 type DetectedPattern = {
   id: string;                  // stable hash
   kind: PatternKind;           // 'double_bottom' | 'double_top' | ...
   direction: 'bullish' | 'bearish';
-  confidence: number;          // 0..1（MVP は 0.5 等の固定でも可）
+  confidence: number;          // 0..1（多要素スコアリングで算出）
+  status: PatternStatus;       // パターンの確定状態
   startTime: number; endTime: number;
   markerTime: number;          // マーカーをチャートに打つ位置
   neckline?: number;           // 該当パターンなら
   note?: string;
+  detectedAt: number;          // 検出時刻（UTC epoch 秒）
+  confirmedAt?: number;        // 確定時刻
+  entryPrice?: number;         // ブレイク確定時の終値
+  atrAtDetection: number;      // 検出時の ATR 値
 };
 ```
+
+## 検出ログ（IndexedDB）
+
+パターン検出結果をブラウザの IndexedDB に保存し、将来の分析・評価に活用する。
+
+- DB 名: `chart-pattern-alert-log`
+- ストア名: `patterns`
+- キー: `id`（symbol + pattern ID の組合せ）
+- インデックス: `loggedAt`, `symbol`, `kind`
+
+### PatternLogEntry スキーマ
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| id | string | 一意識別子（symbol:patternId） |
+| symbol | string | 銘柄コード |
+| timeframe | string | 時間足 |
+| kind | PatternKind | パターン種別 |
+| direction | string | bullish / bearish |
+| status | PatternStatus | candidate / confirmed / invalidated |
+| confidence | number | スコア |
+| detectedAt | number | 検出時刻 |
+| confirmedAt | number? | 確定時刻 |
+| entryPrice | number? | エントリー価格 |
+| atrAtDetection | number | 検出時 ATR |
+| loggedAt | number | ログ保存時刻 |
+
+実装: `src/services/patternLog.ts`
 
 ## 制約・非目標
 

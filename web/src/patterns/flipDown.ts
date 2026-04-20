@@ -1,10 +1,12 @@
 import type { Candle, DetectedPattern, PatternConfig, Pivot } from "./types";
+import { computeConfidence } from "./scoring";
 import { linearRegression, lineAt } from "./regression";
 
 export function detectFlipDown(
   candles: Candle[],
   pivots: Pivot[],
   cfg: PatternConfig,
+  atr?: number,
 ): DetectedPattern[] {
   if (candles.length === 0) return [];
 
@@ -61,16 +63,36 @@ export function detectFlipDown(
       }
 
       const lineAtBreak = lineAt(reg, breakIdx);
+      const last = candles[candles.length - 1];
+      const confirmed = retestSuccess;
+      const safeAtr = atr != null && atr > 0 ? atr : 1;
+      const touchCount = touchPivots.length;
+
+      const confidence = computeConfidence({
+        isConfirmed: confirmed,
+        atrDepthRatio: Math.abs(last.close - lineAtBreak) / safeAtr,
+        patternBars: bars,
+        breakStrength: Math.abs(candles[breakIdx].close - lineAtBreak) / safeAtr,
+        symmetry: Math.min(1, touchCount / cfg.lineTouchMin),
+        patternMinBars: cfg.patternMinBars,
+        patternMaxBars: cfg.patternMaxBars,
+      });
+
       out.push({
         id: makeId("flip_down", candles[breakIdx].time, lineAtBreak),
         kind: "flip_down",
         direction: "bearish",
-        confidence: retestSuccess ? 0.7 : 0.5,
+        confidence,
+        status: confirmed ? "confirmed" : "candidate",
         startTime: candles[touchPivots[0].idx].time,
         endTime: candles[breakIdx].time,
         markerTime: candles[breakIdx].time,
         neckline: lineAtBreak,
-        note: retestSuccess ? "retest confirmed" : "tentative",
+        note: confirmed ? "retest confirmed" : "tentative",
+        detectedAt: last.time,
+        confirmedAt: confirmed ? candles[breakIdx].time : undefined,
+        entryPrice: confirmed ? candles[breakIdx].close : undefined,
+        atrAtDetection: atr ?? 0,
       });
 
       return out;

@@ -1,4 +1,5 @@
 import type { Candle, DetectedPattern, PatternConfig } from "./types";
+import { computeConfidence } from "./scoring";
 import { linearRegression, lineAt } from "./regression";
 
 export function detectDescendingFlag(
@@ -23,7 +24,6 @@ export function detectDescendingFlag(
     const poleDrop = (candles[poleStart].close - candles[poleEnd].close) / candles[poleStart].close;
     if (poleDrop < cfg.flagPoleMinPct) continue;
 
-    // ATR-based pole length check
     if (atr != null && atr > 0) {
       const poleLen = candles[poleStart].close - candles[poleEnd].close;
       if (poleLen < atr * cfg.flagPoleMinATR) continue;
@@ -51,17 +51,35 @@ export function detectDescendingFlag(
       const lowerAtBreak = lineAt(regL, flagEnd - poleEnd);
       const last = candles[candles.length - 1];
       const confirmed = last.close < lowerAtBreak * (1 - cfg.necklineTolPct);
+      const safeAtr = atr != null && atr > 0 ? atr : 1;
+      const poleLen = candles[poleStart].close - candles[poleEnd].close;
+      const flagBars = flagEnd - poleEnd;
+
+      const confidence = computeConfidence({
+        isConfirmed: confirmed,
+        atrDepthRatio: poleLen / safeAtr,
+        patternBars: flagBars,
+        breakStrength: confirmed ? Math.abs(last.close - lowerAtBreak) / safeAtr : 0,
+        symmetry: cfg.flagSlopeMax > 0 ? Math.max(0, 1 - Math.abs(slopeH - slopeL) / cfg.flagSlopeMax) : 0,
+        patternMinBars: cfg.flagMinBars,
+        patternMaxBars: cfg.flagMaxBars,
+      });
 
       out.push({
         id: makeId("descending_flag", candles[breakIdx].time, lowerAtBreak),
         kind: "descending_flag",
         direction: "bearish",
-        confidence: confirmed ? 0.7 : 0.5,
+        confidence,
+        status: confirmed ? "confirmed" : "candidate",
         startTime: candles[poleStart].time,
         endTime: candles[breakIdx].time,
         markerTime: candles[breakIdx].time,
         neckline: lowerAtBreak,
         note: confirmed ? "flag breakdown" : "tentative",
+        detectedAt: last.time,
+        confirmedAt: confirmed ? last.time : undefined,
+        entryPrice: confirmed ? last.close : undefined,
+        atrAtDetection: atr ?? 0,
       });
 
       break;

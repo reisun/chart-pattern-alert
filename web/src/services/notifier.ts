@@ -23,6 +23,7 @@ export function notifyPattern(
   pattern: DetectedPattern,
   opts?: { iconUrl?: string },
 ): boolean {
+  if (pattern.status !== "confirmed") return false;
   if (typeof Notification === "undefined") return false;
   if (Notification.permission !== "granted") return false;
 

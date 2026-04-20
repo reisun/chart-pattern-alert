@@ -3,6 +3,7 @@ import { detectAll, defaultPatternConfig } from "./patterns";
 import type { Candle, DetectedPattern } from "./patterns/types";
 import { PATTERN_LABELS } from "./patterns/types";
 import { notifyPattern, requestPermission, getPermission } from "./services/notifier";
+import { logPattern, type PatternLogEntry } from "./services/patternLog";
 import { startPolling, type PollingHandle } from "./services/polling";
 import { DEFAULT_STATE, addSeen, loadState, saveState, availableIntervals, type AppState, type Interval, type Scale } from "./state/appState";
 import { createChartView, type ChartHandle } from "./ui/chart";
@@ -189,7 +190,6 @@ export class App {
       const msg = err instanceof ApiError
         ? `API ${err.status} · ${err.code} · ${err.message}`
         : (err instanceof Error ? err.message : String(err));
-      // fallback: show synthetic data so the UI is still usable when the API is rate-limited
       const candles = syntheticWShape();
       this.chart?.setData(candles);
       const patterns = detectAll(candles, defaultPatternConfig);
@@ -202,12 +202,37 @@ export class App {
   private handlePatterns(symbol: string, patterns: DetectedPattern[]): void {
     const newOnes = patterns.filter((p) => !this.state.seenPatternIds.includes(p.id));
     this.renderFeed(patterns);
+
+    for (const p of newOnes) {
+      const entry: PatternLogEntry = {
+        id: `${symbol}:${p.id}`,
+        symbol,
+        timeframe: this.state.interval,
+        kind: p.kind,
+        direction: p.direction,
+        status: p.status,
+        confidence: p.confidence,
+        detectedAt: p.detectedAt,
+        confirmedAt: p.confirmedAt,
+        entryPrice: p.entryPrice,
+        atrAtDetection: p.atrAtDetection,
+        loggedAt: Date.now(),
+      };
+      logPattern(entry);
+    }
+
     const suppress = this.notifySuppress;
     this.notifySuppress = false;
     if (newOnes.length === 0) return;
+
     if (this.state.notificationEnabled && getPermission() === "granted" && !suppress) {
-      for (const p of newOnes) notifyPattern(symbol, p);
+      for (const p of newOnes) {
+        if (p.status === "confirmed") {
+          notifyPattern(symbol, p);
+        }
+      }
     }
+
     this.state = { ...this.state, seenPatternIds: addSeen(this.state, newOnes.map((p) => p.id)) };
     saveState(this.state);
   }
@@ -222,7 +247,8 @@ export class App {
           const arrow = p.direction === "bullish" ? "▲" : "▼";
           const kind = PATTERN_LABELS[p.kind];
           const neck = p.neckline ? ` · neckline ${p.neckline.toFixed(2)}` : "";
-          return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind}</span>${neck} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
+          const statusBadge = p.status === "confirmed" ? "✓" : "?";
+          return `<div class="feed-item"><span class="time">${t}</span><span class="${dirClass}">${arrow} ${kind} ${statusBadge}</span>${neck} <span class="muted">conf ${p.confidence.toFixed(2)} · ${p.note ?? ""}</span></div>`;
         }).join("");
   }
 
