@@ -53,5 +53,6 @@ export const StorageKeys = {
   apiBaseUrl: "apiBaseUrl",
   seenPatternIds: "seenPatternIds",
   enabledPatterns: "enabledPatterns",
+  unreadCounts: "unreadCounts",
   schema: "schema",
 } as const;
