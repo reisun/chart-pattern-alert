@@ -26,11 +26,41 @@ bullish/bearish で完全対称（出来高は方向に依存しない）。
 
 実装: `src/patterns/volume.ts` の `volumeRatio()` + `src/patterns/scoring.ts` の `computeConfidence()`
 
-## 3. 上位足整合（将来）
+## 3. 上位足整合
 
 下位足のパターンは、上位足のトレンドと整合すると信頼度が上がる。
-- 例: 1h 足で押し目 + 15m でダブルボトム
-- MVP は単一足検出。上位足整合は段階拡張。
+
+### 上位足マッピング
+
+| 下位足 | 上位足 |
+|--------|--------|
+| 1m | 15m |
+| 5m | 1h |
+| 15m | 4h |
+| 30m | 4h |
+| 1h | 1d |
+| 4h | 1d |
+| 1d | 1wk |
+| 1wk | なし |
+
+### トレンド判定
+
+上位足の EMA(20) の傾きから bullish / bearish / neutral を判定。
+直近 EMA と 2本前 EMA の差が ATR×0.1 以上で方向確定。
+
+### confidence 調整
+
+| 整合 | 調整 |
+|------|------|
+| aligned（パターン方向 = トレンド方向） | +0.10 |
+| opposed（逆方向） | -0.10 |
+| neutral / unavailable | ±0 |
+
+### キャッシュ
+
+上位足データはメモリキャッシュ（TTL = 上位足 1 本の秒数）で保持。
+
+実装: `src/services/higherTimeframe.ts`, `src/services/higherTfCache.ts`
 
 ## 4. だまし
 
