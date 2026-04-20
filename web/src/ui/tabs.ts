@@ -12,6 +12,7 @@ export function renderTabs(
   active: string | null,
   handlers: TabsHandlers,
 ): void {
+  document.querySelectorAll(".autocomplete-dropdown").forEach((el) => el.remove());
   container.innerHTML = "";
 
   for (const s of symbols) {
@@ -49,6 +50,12 @@ export function renderTabs(
   let selectedIndex = -1;
   let currentResults: StockEntry[] = [];
 
+  const positionDropdown = () => {
+    const rect = input.getBoundingClientRect();
+    dropdown.style.top = `${rect.bottom + 4}px`;
+    dropdown.style.left = `${rect.left}px`;
+  };
+
   const closeDropdown = () => {
     dropdown.classList.add("hidden");
     dropdown.innerHTML = "";
@@ -84,6 +91,7 @@ export function renderTabs(
     }
     dropdown.innerHTML = "";
     dropdown.classList.remove("hidden");
+    positionDropdown();
     for (let i = 0; i < results.length; i++) {
       const item = document.createElement("div");
       item.className = "autocomplete-item";
@@ -140,8 +148,8 @@ export function renderTabs(
 
   adder.appendChild(input);
   adder.appendChild(btn);
-  adder.appendChild(dropdown);
   container.appendChild(adder);
+  document.body.appendChild(dropdown);
 }
 
 function escapeHtml(s: string): string {
