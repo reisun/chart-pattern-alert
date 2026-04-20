@@ -15,6 +15,8 @@ export class App {
   private chart: ChartHandle | null = null;
   private polling: PollingHandle | null = null;
 
+  private notifySuppress = false;
+
   private rootEl: HTMLElement;
   private tabsEl!: HTMLElement;
   private controlsEl!: HTMLElement;
@@ -146,10 +148,13 @@ export class App {
     if (perm === "default") {
       const res = await requestPermission();
       const enabled = res === "granted";
+      if (enabled) this.notifySuppress = true;
       this.state = { ...this.state, notificationEnabled: enabled };
       saveState(this.state);
     } else if (perm === "granted") {
-      this.state = { ...this.state, notificationEnabled: !this.state.notificationEnabled };
+      const next = !this.state.notificationEnabled;
+      if (next) this.notifySuppress = true;
+      this.state = { ...this.state, notificationEnabled: next };
       saveState(this.state);
     }
     this.renderAll();
@@ -197,8 +202,10 @@ export class App {
   private handlePatterns(symbol: string, patterns: DetectedPattern[]): void {
     const newOnes = patterns.filter((p) => !this.state.seenPatternIds.includes(p.id));
     this.renderFeed(patterns);
+    const suppress = this.notifySuppress;
+    this.notifySuppress = false;
     if (newOnes.length === 0) return;
-    if (this.state.notificationEnabled && getPermission() === "granted") {
+    if (this.state.notificationEnabled && getPermission() === "granted" && !suppress) {
       for (const p of newOnes) notifyPattern(symbol, p);
     }
     this.state = { ...this.state, seenPatternIds: addSeen(this.state, newOnes.map((p) => p.id)) };

@@ -1,4 +1,5 @@
-import type { DetectedPattern } from "../patterns/types";
+import { PATTERN_LABELS } from "../patterns/types";
+import type { DetectedPattern, PatternKind } from "../patterns/types";
 
 export type NotifPermission = "default" | "granted" | "denied" | "unsupported";
 
@@ -26,9 +27,9 @@ export function notifyPattern(
   if (Notification.permission !== "granted") return false;
 
   const title = `[${symbol}] ${prettyKind(pattern.kind)}`;
-  const dir = pattern.direction === "bullish" ? "↑ buy" : "↓ sell";
+  const dir = pattern.direction === "bullish" ? "↑ 買い" : "↓ 売り";
   const when = new Date(pattern.markerTime * 1000).toLocaleTimeString();
-  const body = `${dir} — ${when}${pattern.neckline ? ` / neckline ~${pattern.neckline.toFixed(2)}` : ""}`;
+  const body = `${dir} — ${when}${pattern.neckline ? ` / ネックライン ~${pattern.neckline.toFixed(2)}` : ""}`;
   const tag = `${symbol}:${pattern.kind}:${bucket5m(pattern.markerTime)}`;
 
   const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
@@ -55,11 +56,7 @@ export function notifyPattern(
 }
 
 function prettyKind(kind: string): string {
-  switch (kind) {
-    case "double_bottom": return "Double Bottom";
-    case "double_top": return "Double Top";
-    default: return kind;
-  }
+  return PATTERN_LABELS[kind as PatternKind] ?? kind;
 }
 
 function bucket5m(t: number): number {

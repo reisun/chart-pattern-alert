@@ -1,9 +1,18 @@
-import { searchStocks, type StockEntry } from "../data/stocks";
+import { searchStocks, STOCK_LIST, type StockEntry } from "../data/stocks";
 
 export interface TabsHandlers {
   onSelect: (symbol: string) => void;
   onAdd: (symbol: string) => void;
   onRemove: (symbol: string) => void;
+}
+
+function findStockName(symbol: string): string | undefined {
+  const s = symbol.toUpperCase();
+  const entry = STOCK_LIST.find((e) => {
+    const t = e.ticker.toUpperCase();
+    return t === s || t === `${s}.T` || t.replace(/\.T$/, "") === s;
+  });
+  return entry?.name;
 }
 
 export function renderTabs(
@@ -19,6 +28,8 @@ export function renderTabs(
     const tab = document.createElement("button");
     tab.className = "tab" + (s === active ? " active" : "");
     tab.type = "button";
+    const stockName = findStockName(s);
+    if (stockName) tab.title = stockName;
     tab.innerHTML = `${escapeHtml(s)}<span class="close" title="Remove">✕</span>`;
     tab.addEventListener("click", (ev) => {
       const target = ev.target as HTMLElement;
