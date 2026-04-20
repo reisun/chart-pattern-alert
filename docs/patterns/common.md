@@ -115,6 +115,31 @@ confirmed パターンのブレイク後の値動きを追跡し、成功/失敗
 
 実装: `src/services/patternTracker.ts`
 
+## 9. 時間足別チューニング
+
+時間足ごとにパターン検出の閾値をオーバーライドする。`defaultPatternConfig` をベースに、時間足固有の `Partial<PatternConfig>` をマージして使用する。
+
+### オーバーライド対象フィールド
+
+| フィールド | 短足で上げる理由 | 長足で下げる理由 |
+|-----------|-----------------|-----------------|
+| `minSwingPct` | ノイズが多い | トレンドが明確 |
+| `pivotMinATR` | ダマシ抑制 | 小さいスイングも有効 |
+| `patternMinBars` / `patternMaxBars` | パターン形成が速い | パターン形成が遅い |
+| `cooldownBars` | 重複シグナル抑制 | シグナル頻度維持 |
+| `minConfidence` | 短足は厳格に | — |
+
+### 各時間足の方針
+
+| 時間足 | 方針 |
+|--------|------|
+| 1m / 5m | ノイズ対策重視。minSwingPct/pivotMinATR を上げ、cooldownBars を長く |
+| 15m / 30m | バランス型。デフォルトに近い |
+| 1h | デフォルトそのまま（基準時間足） |
+| 4h / 1d / 1wk | パターンサイズ範囲を縮小、cooldownBars を短く |
+
+実装: `src/patterns/config.ts` の `resolveConfig()` と `INTERVAL_OVERRIDES`
+
 ## 検出の共通フロー
 
 ```

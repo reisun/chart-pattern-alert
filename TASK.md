@@ -14,11 +14,11 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **内容**: 検出後の事後追跡。ATR 評価窓（+2ATR 成功 / -1ATR 失敗）、パターンサイズ連動窓、MFE/MAE 計測
 - **実装**: `src/services/patternTracker.ts`（新規）、`src/services/patternLog.ts`（DB v2 マイグレーション）、`src/app.ts`（tick 統合・Feed 表示）
 
-### B7. 時間足別チューニング（Phase2）
+### ~~B7. 時間足別チューニング（Phase2）~~ → 完了
 
-- **状態**: レビュー指摘あり。未実装
+- **状態**: 実装済み
 - **内容**: 時間足ごとに異なる検出閾値・評価窓・通知条件・重複抑制幅を持つ config 分離
-- **前提**: 現在は全時間足で同一 config
+- **実装**: `src/patterns/config.ts` に `resolveConfig()` + `INTERVAL_OVERRIDES`（Partial マージ）、`src/app.ts` で interval に応じた config を使用
 
 ### B8. 通知レベル 4 段階（Phase2）
 
