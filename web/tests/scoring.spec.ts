@@ -26,7 +26,7 @@ describe("computeConfidence", () => {
     expect(score).toBe(0.3);
   });
 
-  it("returns maximum when all bonuses apply", () => {
+  it("returns maximum when all bonuses apply (without volume)", () => {
     const score = computeConfidence(baseFactors({
       isConfirmed: true,
       atrDepthRatio: 2.5,
@@ -35,6 +35,18 @@ describe("computeConfidence", () => {
       symmetry: 0.9,
     }));
     expect(score).toBe(0.95);
+  });
+
+  it("clamps to 1.0 when all bonuses including volume apply", () => {
+    const score = computeConfidence(baseFactors({
+      isConfirmed: true,
+      atrDepthRatio: 2.5,
+      patternBars: 30,
+      breakStrength: 0.8,
+      symmetry: 0.9,
+      volumeRatio: 2.0,
+    }));
+    expect(score).toBe(1.0);
   });
 
   it("confirmed adds 0.2", () => {
@@ -69,8 +81,27 @@ describe("computeConfidence", () => {
       patternBars: 30,
       breakStrength: 1,
       symmetry: 1,
+      volumeRatio: 3.0,
     }));
     expect(score).toBeLessThanOrEqual(1.0);
     expect(score).toBeGreaterThanOrEqual(0.0);
+  });
+
+  it("volumeRatio >= 1.5 adds 0.1", () => {
+    const without = computeConfidence(baseFactors());
+    const withVol = computeConfidence(baseFactors({ volumeRatio: 1.5 }));
+    expect(withVol - without).toBeCloseTo(0.1);
+  });
+
+  it("volumeRatio < 1.5 does not add bonus", () => {
+    const without = computeConfidence(baseFactors());
+    const withVol = computeConfidence(baseFactors({ volumeRatio: 1.4 }));
+    expect(withVol).toBe(without);
+  });
+
+  it("volumeRatio undefined does not add bonus", () => {
+    const without = computeConfidence(baseFactors());
+    const withVol = computeConfidence(baseFactors({ volumeRatio: undefined }));
+    expect(withVol).toBe(without);
   });
 });

@@ -1,5 +1,6 @@
 import type { Candle, DetectedPattern, PatternConfig, Pivot } from "./types";
 import { computeConfidence } from "./scoring";
+import { volumeRatio } from "./volume";
 
 export function detectHeadAndShoulders(
   candles: Candle[],
@@ -50,6 +51,7 @@ export function detectHeadAndShoulders(
       symmetry: headNeckDist > 0 ? Math.max(0, 1 - Math.abs(ls.price - rs.price) / headNeckDist) : 0,
       patternMinBars: 30,
       patternMaxBars: 80,
+      volumeRatio: volumeRatio(candles, candles.length - 1),
     });
 
     out.push({

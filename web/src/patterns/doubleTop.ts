@@ -1,5 +1,6 @@
 import type { Candle, DetectedPattern, PatternConfig, Pivot } from "./types";
 import { computeConfidence } from "./scoring";
+import { volumeRatio } from "./volume";
 
 export function detectDoubleTop(
   candles: Candle[],
@@ -45,6 +46,7 @@ export function detectDoubleTop(
       symmetry: Math.max(0, 1 - Math.abs(a.price - c.price) / safeAtr),
       patternMinBars: cfg.patternMinBars,
       patternMaxBars: cfg.patternMaxBars,
+      volumeRatio: volumeRatio(candles, candles.length - 1),
     });
 
     out.push({

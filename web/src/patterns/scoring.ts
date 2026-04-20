@@ -16,5 +16,8 @@ export function computeConfidence(factors: ScoringFactors): number {
 
   if (factors.symmetry >= 0.7) score += 0.1;
 
+  // 出来高確認: ブレイク足の出来高が平均の1.5倍以上で +0.10
+  if (factors.volumeRatio != null && factors.volumeRatio >= 1.5) score += 0.1;
+
   return Math.min(1.0, Math.max(0.0, Math.round(score * 100) / 100));
 }
