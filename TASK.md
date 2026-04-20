@@ -56,7 +56,7 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 ## C. 小改善（気づき次第）
 
 - 本番デプロイ後の CDN キャッシュ確認（初回 504/503 のユーザー影響）
-- `api/app/__init__.py` のバージョン文字列を `importlib.metadata` 読み取りに
+- ~~`api/app/__init__.py` のバージョン文字列を `importlib.metadata` 読み取りに~~ → 完了
 - Dev 時の Vite port 競合回避（現状は `strictPort: false` で自動繰上げだが、固定したいケース用に明示オプション）
 - Safari iOS での Notification 挙動確認
 
@@ -91,5 +91,11 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 | feat | クレンジング考慮の入力補完 (Z-2) | [#15](https://github.com/reisun/chart-pattern-alert/pull/15) |
 | feat | Z-3 タブツールチップ企業名表示 & Z-4 通知改善 | [#16](https://github.com/reisun/chart-pattern-alert/pull/16) |
 | B-review | パターン状態3段階化・多要素スコアリング・通知品質向上・検出ログ基盤 | [#17](https://github.com/reisun/chart-pattern-alert/pull/17) |
+| B6 | 評価窓（ATR連動成否判定・MFE/MAE計測） | [#18](https://github.com/reisun/chart-pattern-alert/pull/18) |
+| B7 | 時間足別パターン検出チューニング | [#19](https://github.com/reisun/chart-pattern-alert/pull/19) |
+| B3 | 出来高判定による confidence 加点 | [#20](https://github.com/reisun/chart-pattern-alert/pull/20) [#21](https://github.com/reisun/chart-pattern-alert/pull/21) |
+| B2 | 上位足トレンド整合 | [#22](https://github.com/reisun/chart-pattern-alert/pull/22) |
+| B8 | 通知レベル4段階化 | [#23](https://github.com/reisun/chart-pattern-alert/pull/23) |
+| B4 | 未読バッジ + 検出履歴パネル | [#24](https://github.com/reisun/chart-pattern-alert/pull/24) |
 
 公開 URL: https://reisun.github.io/chart-pattern-alert/
