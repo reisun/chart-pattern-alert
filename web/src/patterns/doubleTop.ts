@@ -1,8 +1,6 @@
 import type { Candle, DetectedPattern, PatternConfig, Pivot } from "./types";
+import { computeConfidence } from "./scoring";
 
-/**
- * Detect Double Top (M-shape). Symmetric of Double Bottom.
- */
 export function detectDoubleTop(
   candles: Candle[],
   pivots: Pivot[],
@@ -28,7 +26,6 @@ export function detectDoubleTop(
     const dropPct = (Math.min(a.price, c.price) - b.price) / Math.min(a.price, c.price);
     if (dropPct < cfg.minSwingPct) continue;
 
-    // ATR-based depth check: middle trough must be sufficiently below the tops
     if (atr != null && atr > 0) {
       const depth = Math.min(a.price, c.price) - b.price;
       if (depth < atr * cfg.doubleMinDepthATR) continue;
@@ -37,17 +34,34 @@ export function detectDoubleTop(
     const neckline = b.price;
     const last = candles[candles.length - 1];
     const confirmed = last.close < neckline * (1 - cfg.necklineTolPct);
+    const safeAtr = atr != null && atr > 0 ? atr : 1;
+    const depth = Math.min(a.price, c.price) - b.price;
+
+    const confidence = computeConfidence({
+      isConfirmed: confirmed,
+      atrDepthRatio: depth / safeAtr,
+      patternBars: bars,
+      breakStrength: confirmed ? Math.abs(last.close - neckline) / safeAtr : 0,
+      symmetry: Math.max(0, 1 - Math.abs(a.price - c.price) / safeAtr),
+      patternMinBars: cfg.patternMinBars,
+      patternMaxBars: cfg.patternMaxBars,
+    });
 
     out.push({
       id: makeId("double_top", c.time, neckline),
       kind: "double_top",
       direction: "bearish",
-      confidence: confirmed ? 0.7 : 0.5,
+      confidence,
+      status: confirmed ? "confirmed" : "candidate",
       startTime: a.time,
       endTime: c.time,
       markerTime: c.time,
       neckline,
       note: confirmed ? "neckline breakdown" : "tentative",
+      detectedAt: last.time,
+      confirmedAt: confirmed ? last.time : undefined,
+      entryPrice: confirmed ? last.close : undefined,
+      atrAtDetection: atr ?? 0,
     });
   }
 

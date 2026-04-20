@@ -26,11 +26,16 @@ function pattern(id: string, markerTime = 1_700_000_000): DetectedPattern {
     kind: "double_bottom",
     direction: "bullish",
     confidence: 0.7,
+    status: "confirmed",
     startTime: markerTime - 3600,
     endTime: markerTime,
     markerTime,
     neckline: 100,
     note: "test",
+    detectedAt: markerTime,
+    confirmedAt: markerTime,
+    entryPrice: 101,
+    atrAtDetection: 2.5,
   };
 }
 
@@ -76,8 +81,15 @@ describe("notifier", () => {
   it("two notifications for the same bucket share the same tag (browser coalesces)", () => {
     MockNotification.permission = "granted";
     notifyPattern("AAPL", pattern("p1", 1_700_000_000));
-    notifyPattern("AAPL", pattern("p1", 1_700_000_020)); // within same 5m bucket
+    notifyPattern("AAPL", pattern("p1", 1_700_000_020));
     expect(MockNotification.instances).toHaveLength(2);
     expect(MockNotification.instances[0].options.tag).toBe(MockNotification.instances[1].options.tag);
+  });
+
+  it("notifyPattern returns false for candidate patterns", () => {
+    MockNotification.permission = "granted";
+    const p = { ...pattern("p1"), status: "candidate" as const };
+    expect(notifyPattern("AAPL", p)).toBe(false);
+    expect(MockNotification.instances).toHaveLength(0);
   });
 });

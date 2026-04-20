@@ -26,6 +26,7 @@ export const defaultPatternConfig: PatternConfig = {
   pivotMinBars: 5,
   cooldownBars: 10,
   minConfidence: 0.6,
+  candidateMinConfidence: 0.3,
   flagPoleMinATR: 2.0,
   doubleMinDepthATR: 1.0,
 };

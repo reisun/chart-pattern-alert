@@ -53,13 +53,21 @@ export function createChartView(container: HTMLElement): ChartHandle {
       series.setData(data);
     },
     setMarkers(patterns: DetectedPattern[]) {
-      const markers: SeriesMarker<Time>[] = patterns.map((p) => ({
-        time: p.markerTime as Time,
-        position: p.direction === "bullish" ? "belowBar" : "aboveBar",
-        color: p.direction === "bullish" ? "#26a69a" : "#ef5350",
-        shape: p.direction === "bullish" ? "arrowUp" : "arrowDown",
-        text: PATTERN_SHORT_LABELS[p.kind],
-      }));
+      const markers: SeriesMarker<Time>[] = patterns.map((p) => {
+        let color: string;
+        if (p.status === "candidate") {
+          color = "#9e9e9e";
+        } else {
+          color = p.direction === "bullish" ? "#26a69a" : "#ef5350";
+        }
+        return {
+          time: p.markerTime as Time,
+          position: p.direction === "bullish" ? "belowBar" : "aboveBar",
+          color,
+          shape: p.direction === "bullish" ? "arrowUp" : "arrowDown",
+          text: PATTERN_SHORT_LABELS[p.kind],
+        };
+      });
       markers.sort((a, b) => (a.time as number) - (b.time as number));
       series.setMarkers(markers);
     },

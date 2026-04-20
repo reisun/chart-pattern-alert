@@ -1,16 +1,6 @@
 import type { Candle, DetectedPattern, PatternConfig, Pivot } from "./types";
+import { computeConfidence } from "./scoring";
 
-/**
- * Detect Double Bottom (W-shape) from pivots.
- *
- * Looks for the last triplet [low, high, low] among pivots where:
- *   - both lows are roughly equal (within `doubleBottomTolPct`)
- *   - the middle high is sufficiently above (>= minSwingPct * low)
- *   - distance between lows is within [patternMinBars, patternMaxBars]
- *
- * Confirmation: last candle's close > neckline * (1 + necklineTolPct) → confidence 0.7
- * Tentative: otherwise → confidence 0.5 (still reported; UI can choose to ignore)
- */
 export function detectDoubleBottom(
   candles: Candle[],
   pivots: Pivot[],
@@ -36,7 +26,6 @@ export function detectDoubleBottom(
     const liftPct = (b.price - Math.max(a.price, c.price)) / Math.max(a.price, c.price);
     if (liftPct < cfg.minSwingPct) continue;
 
-    // ATR-based depth check: middle peak must be sufficiently above the bottoms
     if (atr != null && atr > 0) {
       const depth = b.price - Math.max(a.price, c.price);
       if (depth < atr * cfg.doubleMinDepthATR) continue;
@@ -45,17 +34,34 @@ export function detectDoubleBottom(
     const neckline = b.price;
     const last = candles[candles.length - 1];
     const confirmed = last.close > neckline * (1 + cfg.necklineTolPct);
+    const safeAtr = atr != null && atr > 0 ? atr : 1;
+    const depth = b.price - Math.max(a.price, c.price);
+
+    const confidence = computeConfidence({
+      isConfirmed: confirmed,
+      atrDepthRatio: depth / safeAtr,
+      patternBars: bars,
+      breakStrength: confirmed ? Math.abs(last.close - neckline) / safeAtr : 0,
+      symmetry: Math.max(0, 1 - Math.abs(a.price - c.price) / safeAtr),
+      patternMinBars: cfg.patternMinBars,
+      patternMaxBars: cfg.patternMaxBars,
+    });
 
     out.push({
       id: makeId("double_bottom", c.time, neckline),
       kind: "double_bottom",
       direction: "bullish",
-      confidence: confirmed ? 0.7 : 0.5,
+      confidence,
+      status: confirmed ? "confirmed" : "candidate",
       startTime: a.time,
       endTime: c.time,
       markerTime: c.time,
       neckline,
       note: confirmed ? "neckline breakout" : "tentative",
+      detectedAt: last.time,
+      confirmedAt: confirmed ? last.time : undefined,
+      entryPrice: confirmed ? last.close : undefined,
+      atrAtDetection: atr ?? 0,
     });
   }
 
