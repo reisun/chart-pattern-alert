@@ -2,6 +2,17 @@ import { PATTERN_LABELS } from "../patterns/types";
 import type { DetectedPattern, PatternKind } from "../patterns/types";
 
 export type NotifPermission = "default" | "granted" | "denied" | "unsupported";
+export type NotificationLevel = "L1" | "L2" | "L3" | "L4";
+
+export function determineNotifLevel(
+  pattern: DetectedPattern,
+  higherTfAligned: boolean,
+): NotificationLevel {
+  if (pattern.status !== "confirmed") return "L1";
+  if (pattern.confidence >= 0.8 && higherTfAligned) return "L4";
+  if (pattern.confidence >= 0.7 && higherTfAligned) return "L3";
+  return "L2";
+}
 
 export function getPermission(): NotifPermission {
   if (typeof Notification === "undefined") return "unsupported";
@@ -21,13 +32,16 @@ export async function requestPermission(): Promise<NotifPermission> {
 export function notifyPattern(
   symbol: string,
   pattern: DetectedPattern,
+  level: NotificationLevel = "L3",
   opts?: { iconUrl?: string },
 ): boolean {
+  if (level !== "L3" && level !== "L4") return false;
   if (pattern.status !== "confirmed") return false;
   if (typeof Notification === "undefined") return false;
   if (Notification.permission !== "granted") return false;
 
-  const title = `[${symbol}] ${prettyKind(pattern.kind)}`;
+  const prefix = level === "L4" ? "⚠ " : "";
+  const title = `${prefix}[${symbol}] ${prettyKind(pattern.kind)}`;
   const dir = pattern.direction === "bullish" ? "↑ 買い" : "↓ 売り";
   const when = new Date(pattern.markerTime * 1000).toLocaleTimeString();
   const body = `${dir} — ${when}${pattern.neckline ? ` / ネックライン ~${pattern.neckline.toFixed(2)}` : ""}`;
