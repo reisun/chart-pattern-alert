@@ -31,11 +31,11 @@ MVP (L1–L4) はデプロイ済（[公開 URL](https://reisun.github.io/chart-p
 - **内容**: たとえば 15m 足で検出されたパターンの信頼度を 1h 足のトレンド方向で加点/減点
 - **実装案**: `detectAll` 呼び出し時に上位足 OHLCV を別途取得しトレンド方向を判定、`DetectedPattern.confidence` を補正
 
-### B3. 出来高判定による confidence 加点
+### ~~B3. 出来高判定による confidence 加点~~ → 完了
 
-- **状態**: 設計書言及あり（[`docs/patterns/common.md`](./docs/patterns/common.md) §2）。未実装
-- **内容**: ネックライン突破足の出来高が直近 N 本平均より高ければ `confidence += 0.1` 等
-- **前提**: `Candle.volume` は既に取得済（API 側で埋めている）
+- **状態**: 実装済み
+- **内容**: ブレイク足の出来高が直近 20 本平均の 1.5 倍以上で confidence +0.10
+- **実装**: `src/patterns/volume.ts`（新規）、`src/patterns/scoring.ts`（加点追加）、10パターン検出関数に volumeRatio 統合
 
 ### B4. 複数銘柄タブ UX 改善
 
