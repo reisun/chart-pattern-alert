@@ -20,15 +20,9 @@ services:
       # 本番では上流プロキシが同一ネットワーク内から参照するため、
       # 必要に応じてコメントアウト or 削除してよい。
       - "8000:8000"
-    networks:
-      - chart-pattern-alert-net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status==200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3
 
-networks:
-  chart-pattern-alert-net:
-    name: chart-pattern-alert-net
-    external: true
