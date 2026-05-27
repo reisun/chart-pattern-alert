@@ -24,6 +24,7 @@ htmlcov/
 
 # Docker
 *.pid
+docker-compose.override.yml
 
 # IDE / OS
 .vscode/

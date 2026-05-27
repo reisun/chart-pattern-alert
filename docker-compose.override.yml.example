@@ -1,0 +1,8 @@
+services:
+  api:
+    networks:
+      - chart-pattern-alert-net
+
+networks:
+  chart-pattern-alert-net:
+    external: true
