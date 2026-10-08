@@ -22,7 +22,7 @@
 ### Frontend (`web/`)
 - 銘柄・時間足・スケール・ポーリング間隔の UI と設定永続化（localStorage）
 - 検出ログ永続化（IndexedDB）
-- API クライアント: `VITE_API_BASE_URL` 経由で OHLCV 取得
+- API クライアント: 本番は `config.json` の `apiBaseUrl` 経由 (開発は `VITE_API_BASE_URL`)で OHLCV 取得
 - チャート描画: lightweight-charts（ローソク足、出来高、マーカー）
 - パターン検出（TypeScript 内実装）: OHLCV 配列 → 検出結果（パターン種別 + 位置）
 - 通知: Service Worker 登録、前面通知（Notification API）
