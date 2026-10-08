@@ -38,7 +38,7 @@
   - Polling: `1min`, `5min`, `15min`, `30min`, `1h`
 - **Notification**: ON/OFF と再テスト。
   - Re-test: `Notification.permission` を確認しつつテスト通知を 1 件発火
-- **API Base URL (optional)**: 既定は `VITE_API_BASE_URL`。開発時に `localStorage` に書かれた値で上書き可。
+- **API Base URL (optional)**: 本番は `config.json` の `apiBaseUrl`。開発時のみ `VITE_API_BASE_URL` と `localStorage` に書かれた値で上書き可。
 
 ## 保存
 

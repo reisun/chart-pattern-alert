@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "../runtime-config";
 import type { Candle } from "../patterns/types";
 
 export interface OhlcvResponse {
@@ -27,10 +28,12 @@ export class ApiError extends Error {
 }
 
 function baseUrl(): string {
-  const override = localStorage.getItem("cpa:apiBaseUrl");
-  if (override && override.trim()) return override.trim().replace(/\/$/, "");
-  const env = (import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? "";
-  return env.replace(/\/$/, "") || "http://localhost:8000";
+  if (import.meta.env.DEV) {
+    const override = localStorage.getItem("cpa:apiBaseUrl");
+    if (override && override.trim()) return override.trim().replace(/\/$/, "");
+    return (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
+  }
+  return getApiBaseUrl();
 }
 
 async function request<T>(path: string): Promise<T> {

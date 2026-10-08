@@ -17,9 +17,9 @@ services:
       - JQUANTS_API_KEY=${JQUANTS_API_KEY:-}
     ports:
       # 開発用にホスト公開。
-      # 本番では上流プロキシが同一ネットワーク内から参照するため、
+      # 本番では cloudflared が同一ネットワーク内から参照するため、
       # 必要に応じてコメントアウト or 削除してよい。
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status==200 else 1)"]
       interval: 30s
